@@ -9,14 +9,15 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 - No third-party account, activation, or license-verification flow in this independent app
 - PCB profile selector for the currently documented DA41 variants
 - USB OTG serial-device discovery and connection
-- Firmware file import, SHA-256 fingerprint, and basic Motorola S-record checksum checks
+- Import the original Samsung Swap APK locally and extract its three DA41 firmware assets into app memory (the APK and proprietary firmware are not uploaded or committed)
+- Firmware file import, SHA-256 fingerprint, and Motorola S-record checksum checks
 - Static-analysis findings from the supplied Samsung Swap APK
 - Offline firmware validator checks Motorola S-record counts/checksums and compares extracted file sizes and SHA-256 hashes with the APK reference values (`python3 tools/validate_firmware.py <files...>`)
 - Detailed APK findings and exact bundled firmware hashes in [docs/SAMSUNG_SWAP_APK_ANALYSIS.md](docs/SAMSUNG_SWAP_APK_ANALYSIS.md)
 - Existing protocol research notes in [docs/REVERSE_ENGINEERING_NOTES.md](docs/REVERSE_ENGINEERING_NOTES.md)
 
 ## Samsung Swap APK analysis
-The supplied APK is a Flutter AOT release. Its Dart source is not directly available as original source code. The analysis recovered bundled firmware asset names and hashes, board/workflow strings, engine and transport symbols, and activation-related strings. It did not recover a validated packet-level programming protocol or a verified universal license key.
+The supplied APK is a Flutter AOT release. Its Dart source is not directly available as original source code. The app can now import the APK locally and extract the three bundled DA41 firmware assets in memory. Static analysis recovered board/workflow strings, engine and native serial transport clues, and activation-related strings. It did not recover a validated packet-level programming protocol or a verified universal license key.
 
 To extract the original APK's selected firmware and board images locally:
 ```bash
