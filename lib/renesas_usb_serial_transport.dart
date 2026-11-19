@@ -96,7 +96,11 @@ class RenesasUsbSerialTransport {
   }
 
   final RenesasUsbPortDriver driver;
-  final UsbTool0LineProfile lineProfile;
+  UsbTool0LineProfile lineProfile;
+
+  void updateLineProfile(UsbTool0LineProfile profile) {
+    lineProfile = profile;
+  }
   final int baudRate;
   final Duration timeout;
 
