@@ -292,7 +292,7 @@ class _DashboardPageState extends State<DashboardPage> {
       if (!mounted) return;
       setState(() {
         readingSignature = false;
-        signatureMessage = 'Read-only signature received: $deviceName · ${signature.length} bytes\\n$hex';
+        signatureMessage = 'Read-only signature received: $deviceName · ${signature.length} bytes\n$hex';
       });
     } catch (e) {
       if (!mounted) return;
@@ -773,7 +773,7 @@ class _DashboardPageState extends State<DashboardPage> {
               icon: Icons.lock_outline_rounded,
               title: 'PROGRAMMING CONTROLS',
               child: const Text(
-                'Protocol frame generation is implemented and unit-tested, but the hardware transport is not connected to the target yet. Erase, write, verify and reboot remain disabled until the single-wire TOOL0 adapter, RESET/FLMD0 control, voltage levels and target-board wiring are verified. The APK labels 0459C/0459G as Double Door and 0459M as Single Door; that does not prove cross-model firmware compatibility.',
+                'Android USB serial transport, configurable DTR/RTS direction profile, UART framing and the read-only silicon-signature transaction are implemented. The target must already be in Renesas flash mode for the signature check. Erase, write, verify and reboot remain disabled until the USB BREAK path, RESET/FLMD0 control, voltage levels and board-specific wiring are verified. The APK labels 0459C/0459G as Double Door and 0459M as Single Door; that does not prove cross-model firmware compatibility.',
               ),
             ),
           ],
