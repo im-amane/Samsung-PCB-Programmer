@@ -4,6 +4,7 @@ import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:usb_serial/usb_serial.dart';
+import 'package:flutter_libserialport/flutter_libserialport.dart' as libserial;
 
 import 'firmware_validator.dart';
 import 'srecord_image.dart';
@@ -86,6 +87,9 @@ class _DashboardPageState extends State<DashboardPage> {
   int selectedIndex = 0;
   List<UsbDevice> devices = [];
   UsbPort? port;
+  libserial.SerialPort? nativePort;
+  String? connectedNativePath;
+  List<String> nativePorts = [];
   UsbDevice? connectedDevice;
   FirmwareInfo? firmware;
   final Map<String, Uint8List> apkFirmware = {};
@@ -104,6 +108,8 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void dispose() {
     port?.close();
+    nativePort?.close();
+    nativePort?.dispose();
     super.dispose();
   }
 
@@ -111,13 +117,20 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() => scanning = true);
     try {
       final found = await UsbSerial.listDevices();
+      var nativeFound = <String>[];
+      try {
+        nativeFound = libserial.SerialPort.availablePorts;
+      } catch (_) {
+        // Native enumeration may be unavailable on an emulator or desktop test.
+      }
       if (!mounted) return;
       setState(() {
         devices = found;
+        nativePorts = nativeFound;
         scanning = false;
-        connectionMessage = found.isEmpty
+        connectionMessage = found.isEmpty && nativeFound.isEmpty
             ? 'No USB serial interface detected.'
-            : '${found.length} USB device(s) detected. Select the correct interface.';
+            : '${found.length} Android USB device(s), ${nativeFound.length} native serial port(s) detected.';
       });
     } catch (e) {
       if (!mounted) return;
@@ -157,14 +170,49 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<void> _connectNative(String path) async {
+    libserial.SerialPort? candidate;
+    try {
+      await port?.close();
+      await nativePort?.close();
+      nativePort?.dispose();
+      candidate = libserial.SerialPort(path);
+      if (!candidate.openReadWrite()) {
+        candidate.dispose();
+        if (mounted) setState(() => connectionMessage = 'Native serial port could not be opened: $path');
+        return;
+      }
+      if (!mounted) {
+        candidate.close();
+        candidate.dispose();
+        return;
+      }
+      setState(() {
+        port = null;
+        connectedDevice = null;
+        nativePort = candidate;
+        connectedNativePath = path;
+        connectionMessage = 'Native libserialport opened $path. No baud rate, DTR/RTS, break pulse, or MCU data has been changed/sent.';
+      });
+    } catch (e) {
+      candidate?.dispose();
+      if (mounted) setState(() => connectionMessage = 'Native serial open failed: $e');
+    }
+  }
+
   Future<void> _disconnect() async {
     final current = port;
+    final native = nativePort;
     setState(() {
       port = null;
       connectedDevice = null;
-      connectionMessage = 'USB serial port disconnected.';
+      nativePort = null;
+      connectedNativePath = null;
+      connectionMessage = 'Serial interface disconnected.';
     });
     await current?.close();
+    native?.close();
+    native?.dispose();
   }
 
   Future<void> _importApk() async {
@@ -342,7 +390,7 @@ class _DashboardPageState extends State<DashboardPage> {
               icon: Icons.memory_rounded,
               title: 'PROGRAMMER STATUS',
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(port == null ? 'Not connected' : 'USB connected',
+                Text(port == null && nativePort == null ? 'Not connected' : 'USB / serial connected',
                     style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 Text(connectionMessage, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
@@ -370,6 +418,25 @@ class _DashboardPageState extends State<DashboardPage> {
                             : TextButton(onPressed: () => _connect(d), child: const Text('Connect')),
                       )),
                 ],
+                if (nativePorts.isNotEmpty) ...[
+                  const Divider(height: 20),
+                  const Text('Native libserialport interfaces'),
+                  ...nativePorts.map((path) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.settings_input_component),
+                        title: Text(path),
+                        subtitle: Text(connectedNativePath == path ? 'Connected via libserialport' : 'Native serial endpoint'),
+                        trailing: connectedNativePath == path
+                            ? const Icon(Icons.check_circle, color: Colors.green)
+                            : TextButton(onPressed: () => _connectNative(path), child: const Text('Open')),
+                      )),
+                ],
+                if (port != null || nativePort != null)
+                  TextButton.icon(
+                    onPressed: _disconnect,
+                    icon: const Icon(Icons.link_off_rounded),
+                    label: const Text('Disconnect'),
+                  ),
               ]),
             ),
             const SizedBox(height: 18),
