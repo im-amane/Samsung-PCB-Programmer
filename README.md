@@ -7,9 +7,9 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 
 ## Included in this build
 - No third-party account, activation, or license-verification flow in this independent app
-- PCB profile selector for the currently documented DA41 variants
+- Board selector including all five board labels recovered from the original AOT snapshot; only the three profiles with firmware assets in the supplied APK are marked firmware-backed
 - USB OTG serial-device discovery and connection
-- Import the original Samsung Swap APK locally and extract its three DA41 firmware assets into app memory (the APK and proprietary firmware are not uploaded or committed)
+- Import the original Samsung Swap APK locally and extract its three DA41 firmware assets plus four original image assets (app logo and board references) into app memory; the APK and extracted binaries are not uploaded or committed
 - Firmware file import, strict Motorola S-record structure/checksum/termination validation, address-indexed memory-map parsing, overlap/gap checks, and generic data-block preparation
 - Renesas 78K0R command/data frame codec with checksums, response validation, ACK/NACK handling, erase/program/verify/signature frame builders, complete 16 KB frame-plan preparation, and unit tests
 - Exact SHA-256 fingerprint and selected-profile matching
@@ -25,7 +25,7 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 1. Build/install the Android APK from the latest successful GitHub Actions run.
 2. Select the DA41 firmware profile you want to inspect.
 3. Tap **Import original Samsung Swap APK** and choose your local `Samsung_Swap.apk`.
-4. The app extracts the three known firmware assets in memory. Tap **Load selected firmware from APK**.
+4. The app extracts the three known firmware assets and four original image assets in memory. The original app logo and DA41-00814D board references are then displayed. Tap **Load selected firmware from APK**.
 5. Check the record/checksum result and the exact SHA-256 profile match.
 6. USB scan/connect currently opens the serial port only. It does not assume a baud rate, change boot pins, or send flash commands.
 
