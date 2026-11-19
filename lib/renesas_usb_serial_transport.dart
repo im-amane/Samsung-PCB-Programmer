@@ -101,7 +101,12 @@ class RenesasUsbSerialTransport {
   void updateLineProfile(UsbTool0LineProfile profile) {
     lineProfile = profile;
   }
-  final int baudRate;
+  int baudRate;
+
+  void updateBaudRate(int value) {
+    if (value <= 0) throw ArgumentError.value(value, 'value');
+    baudRate = value;
+  }
   final Duration timeout;
 
   late final StreamSubscription<Uint8List> _subscription;

@@ -96,6 +96,7 @@ class _DashboardPageState extends State<DashboardPage> {
   bool transmitRts = false;
   bool receiveDtr = false;
   bool receiveRts = false;
+  int usbBaudRate = 9600;
   String? connectedNativePath;
   List<String> nativePorts = [];
   UsbDevice? connectedDevice;
@@ -176,7 +177,7 @@ class _DashboardPageState extends State<DashboardPage> {
         await candidate.close();
         return;
       }
-      final usbLink = RenesasUsbSerialTransport(driver: AndroidUsbSerialPortDriver(candidate), lineProfile: _usbLineProfile);
+      final usbLink = RenesasUsbSerialTransport(driver: AndroidUsbSerialPortDriver(candidate), lineProfile: _usbLineProfile, baudRate: usbBaudRate);
       setState(() {
         port = candidate;
         usbTransport = usbLink;
@@ -537,6 +538,25 @@ class _DashboardPageState extends State<DashboardPage> {
                   _lineSwitch('Transmit RTS asserted', transmitRts, (v) => _setUsbLineProfile(transmitRts: v)),
                   _lineSwitch('Receive DTR asserted', receiveDtr, (v) => _setUsbLineProfile(receiveDtr: v)),
                   _lineSwitch('Receive RTS asserted', receiveRts, (v) => _setUsbLineProfile(receiveRts: v)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Text('UART baud rate'),
+                      const SizedBox(width: 16),
+                      DropdownButton<int>(
+                        value: usbBaudRate,
+                        items: const [9600, 19200, 38400, 57600, 115200]
+                            .map((rate) => DropdownMenuItem<int>(
+                                  value: rate,
+                                  child: Text('$rate baud'),
+                                ))
+                            .toList(),
+                        onChanged: (rate) {
+                          if (rate != null) _setUsbBaudRate(rate);
+                        },
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 6),
                   Text('USB serial Dart API hardware BREAK: not exposed. RESET/FLMD0 and boot-entry control are still not implemented, so programming remains locked.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ],
@@ -695,6 +715,13 @@ class _DashboardPageState extends State<DashboardPage> {
       this.receiveDtr = receiveDtr ?? this.receiveDtr;
       this.receiveRts = receiveRts ?? this.receiveRts;
       usbTransport?.updateLineProfile(_usbLineProfile);
+    });
+  }
+
+  void _setUsbBaudRate(int value) {
+    setState(() {
+      usbBaudRate = value;
+      usbTransport?.updateBaudRate(value);
     });
   }
 

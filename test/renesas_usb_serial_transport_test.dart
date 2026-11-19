@@ -98,6 +98,12 @@ void main() {
       expect(driver.calls, contains('rts:true'));
     });
 
+    test('applies a changed UART baud rate on the next direction switch', () async {
+      transport.updateBaudRate(19200);
+      await transport.transmitMode();
+      expect(driver.calls, contains('configure:19200:8:2:0'));
+    });
+
     test('reassembles a response split across USB stream events', () async {
       final pending = transport.readResponseBytes();
       driver.controller.add(Uint8List.fromList([0x02, 0x01]));
