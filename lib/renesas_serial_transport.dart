@@ -127,6 +127,26 @@ class RenesasSerialTransport {
     return builder.takeBytes();
   }
 
+  /// Reads one complete Renesas response frame from the serial endpoint.
+  ///
+  /// The endpoint/adapter must already be in receive direction. This method
+  /// does not perform single-wire TOOL0 direction switching or target timing.
+  RenesasResponseFrame readResponseFrame({int timeoutMs = 1000}) {
+    final header = readExact(2, timeoutMs: timeoutMs);
+    if (header[0] != Renesas78k0rProtocol.stx) {
+      throw FormatException(
+        'Expected response STX 0x02, received 0x${header[0].toRadixString(16).padLeft(2, '0')}.',
+      );
+    }
+    final declaredLength = header[1];
+    final payloadLength = declaredLength == 0 ? 256 : declaredLength;
+    final tail = readExact(payloadLength + 2, timeoutMs: timeoutMs);
+    return Renesas78k0rProtocol.decodeResponseFrame([
+      ...header,
+      ...tail,
+    ]);
+  }
+
   void close() {
     if (port.isOpen) port.close();
     port.dispose();
