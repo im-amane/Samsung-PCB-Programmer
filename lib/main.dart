@@ -289,6 +289,34 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<void> _exportApkAssets() async {
+    if (apkAssets.isEmpty) {
+      _message('Import the original Samsung Swap APK first.');
+      return;
+    }
+    try {
+      final bundle = Archive();
+      for (final asset in apkAssets.entries) {
+        bundle.addFile(ArchiveFile(asset.key, asset.value.length, asset.value));
+      }
+      final encoded = ZipEncoder().encode(bundle);
+      if (encoded == null || encoded.isEmpty) {
+        throw StateError('Could not create the Flutter asset archive.');
+      }
+      final saved = await FilePicker.platform.saveFile(
+        dialogTitle: 'Export original Samsung Swap Flutter assets',
+        fileName: 'samsung_swap_flutter_assets.zip',
+        bytes: Uint8List.fromList(encoded),
+      );
+      if (!mounted) return;
+      _message(saved == null
+          ? 'Asset export cancelled.'
+          : 'Original Flutter assets exported: $saved');
+    } catch (e) {
+      if (mounted) _message('Asset export failed: $e');
+    }
+  }
+
   void _loadApkFirmware() {
     final profile = boardProfiles[selectedIndex];
     if (profile.firmware.isEmpty) {
@@ -510,6 +538,12 @@ class _DashboardPageState extends State<DashboardPage> {
                       title: Text(asset.key, style: const TextStyle(fontSize: 12)),
                       trailing: Text('${(asset.value.length / 1024).toStringAsFixed(1)} KB'),
                     )).toList(),
+                  ),
+                if (apkAssets.isNotEmpty)
+                  OutlinedButton.icon(
+                    onPressed: _exportApkAssets,
+                    icon: const Icon(Icons.save_alt_rounded),
+                    label: const Text('Export all original Flutter assets as ZIP'),
                   ),
                 if (selected.firmware.isNotEmpty && apkFirmware.containsKey(selected.firmware))
                   TextButton.icon(
