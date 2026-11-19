@@ -120,6 +120,16 @@ class RenesasProtocolSession {
       );
     }
 
+    // Renesas specifies one additional status frame after the final write
+    // data frame. This reports the MCU's automatic internal-verify result.
+    final internalVerify = Renesas78k0rProtocol.decodeResponseFrame(
+      await channel.readFrame(timing.commandTimeout),
+    );
+    Renesas78k0rProtocol.requireAck(
+      internalVerify,
+      operation: 'program internal verify',
+    );
+
     await _exchangeCommand(
       plan.verifyCommandFrame,
       operation: 'verify command',
