@@ -149,7 +149,7 @@ class _DashboardPageState extends State<DashboardPage> {
     }
     if (event is usb_next.UsbDeviceDetached &&
         event.device.deviceId == connectedDevice?.deviceId) {
-      _disconnect();
+      _disconnect(force: true);
       if (mounted) {
         setState(() => connectionMessage = 'USB adapter unplugged. Connection closed.');
       }
@@ -284,8 +284,8 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Future<void> _disconnect() async {
-    if (programming) {
+  Future<void> _disconnect({bool force = false}) async {
+    if (programming && !force) {
       _message('Disconnect is locked while flash programming is running.');
       return;
     }
@@ -697,10 +697,10 @@ class _DashboardPageState extends State<DashboardPage> {
         setState(() {
           programMessage =
               'Programming stopped with an error: $e. Flash contents may be incomplete; do not assume the board is operational.';
+          signatureDeviceName = null;
+          signatureFlashLastAddress = null;
+          signatureMessage = 'Signature invalidated after interrupted programming. Verify target state before continuing.';
         });
-        signatureDeviceName = null;
-        signatureFlashLastAddress = null;
-        signatureMessage = 'Signature invalidated after interrupted programming. Verify target state before continuing.';
       }
     } finally {
       if (mounted) setState(() => programming = false);
