@@ -115,7 +115,12 @@ void main() {
         ),
       );
 
-      await session.program(plan: plan, confirmDestructiveErase: true);
+      final progress = <RenesasProgramProgress>[];
+      await session.program(
+        plan: plan,
+        confirmDestructiveErase: true,
+        onProgress: progress.add,
+      );
 
       expect(channel.writes, hasLength(131));
       expect(channel.writes.first, plan.eraseFrame);
@@ -125,6 +130,9 @@ void main() {
       expect(channel.txCount, 131);
       expect(channel.rxCount, 131);
       expect(responses, isEmpty);
+      expect(progress.last.stage, RenesasProgramStage.complete);
+      expect(progress.last.completedFrames, progress.last.totalFrames);
+      expect(progress.last.fraction, 1);
     });
 
     test('refuses destructive programming without explicit erase confirmation', () async {

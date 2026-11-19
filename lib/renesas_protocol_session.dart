@@ -38,6 +38,31 @@ class RenesasSessionTiming {
   }
 }
 
+enum RenesasProgramStage {
+  erase,
+  programCommand,
+  programData,
+  internalVerify,
+  verifyCommand,
+  verifyData,
+  complete,
+}
+
+class RenesasProgramProgress {
+  const RenesasProgramProgress({
+    required this.stage,
+    required this.completedFrames,
+    required this.totalFrames,
+  });
+
+  final RenesasProgramStage stage;
+  final int completedFrames;
+  final int totalFrames;
+
+  double get fraction =>
+      totalFrames == 0 ? 1 : (completedFrames / totalFrames).clamp(0, 1);
+}
+
 /// Executes documented 78K0R command/data transactions after the target has
 /// already been placed in UART flash-programming mode by a verified adapter.
 class RenesasProtocolSession {
@@ -101,25 +126,44 @@ class RenesasProtocolSession {
   Future<void> program({
     required RenesasProgramPlan plan,
     required bool confirmDestructiveErase,
+    void Function(RenesasProgramProgress progress)? onProgress,
   }) async {
     if (!confirmDestructiveErase) {
       throw StateError('Chip erase was not explicitly confirmed.');
     }
 
+    final totalFrames = 3 + plan.programDataFrames.length +
+        plan.verifyDataFrames.length;
+    var completedFrames = 0;
+    void report(RenesasProgramStage stage) {
+      onProgress?.call(RenesasProgramProgress(
+        stage: stage,
+        completedFrames: completedFrames,
+        totalFrames: totalFrames,
+      ));
+    }
+
+    report(RenesasProgramStage.erase);
     await _exchangeCommand(plan.eraseFrame, operation: 'chip erase');
+    completedFrames++;
+    report(RenesasProgramStage.programCommand);
     await _exchangeCommand(
       plan.programCommandFrame,
       operation: 'programming command',
     );
+    completedFrames++;
     for (var i = 0; i < plan.programDataFrames.length; i++) {
       await _exchangeData(
         plan.programDataFrames[i],
         operation: 'program data frame ${i + 1}',
       );
+      completedFrames++;
+      report(RenesasProgramStage.programData);
     }
 
     // Renesas specifies one additional status frame after the final write
     // data frame. This reports the MCU's automatic internal-verify result.
+    report(RenesasProgramStage.internalVerify);
     final internalVerify = Renesas78k0rProtocol.decodeResponseFrame(
       await channel.readFrame(timing.commandTimeout),
     );
@@ -127,16 +171,22 @@ class RenesasProtocolSession {
       internalVerify,
       operation: 'program internal verify',
     );
+    completedFrames++;
 
+    report(RenesasProgramStage.verifyCommand);
     await _exchangeCommand(
       plan.verifyCommandFrame,
       operation: 'verify command',
     );
+    completedFrames++;
     for (var i = 0; i < plan.verifyDataFrames.length; i++) {
       await _exchangeData(
         plan.verifyDataFrames[i],
         operation: 'verify data frame ${i + 1}',
       );
+      completedFrames++;
+      report(RenesasProgramStage.verifyData);
     }
+    report(RenesasProgramStage.complete);
   }
 }
