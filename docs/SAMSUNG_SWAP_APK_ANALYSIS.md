@@ -30,7 +30,7 @@ Recovered strings identify these user-facing operations and states:
 - Programming workflow strings: mass erase, chunked write, verify, and reboot to normal RUN mode.
 - Relevant compiled symbols include `DA41Engine`, `SerialTransport`, `AndroidSerialTransport`, `eraseFlash`, `writeChunkFast`, `verify`.
 
-These strings prove that the APK contains labels/symbols for these operations. They do **not** prove exact packet bytes, timing, transport configuration, or that the workflow succeeds on every board.
+These strings prove that the APK contains labels/symbols for these operations. Renesas application note U19486EJ1V0AN independently documents the 78K0R/IB3 programmer frame protocol and explicitly lists uPD78F1201 as an applicable device. The independent repository now implements a tested frame codec based on that Renesas document. This does not prove the original APK uses every documented option identically or that the Samsung PCB wiring/transport is electrically compatible.
 
 ## Activation / licensing observations
 
@@ -46,7 +46,7 @@ The APK's binary Android manifest and DEX were checked for the standard `INTERNE
 
 ## Important implementation boundary
 
-The existing repository currently provides USB serial discovery/open/disconnect, firmware import, SHA-256 and S-record checksum checks, and exact filename-plus-SHA-256 matching against the selected APK board profile. The recovered APK has stronger programming workflow labels, but the actual target protocol is not validated in this repository. Erase/write controls must remain disabled until the exact PCB revision, connector pinout, logic voltage, programmer transport and command framing are established from reliable evidence and tested on safe bench hardware.
+The existing repository currently provides USB serial discovery/open/disconnect, firmware import, SHA-256 and S-record checksum checks, exact filename-plus-SHA-256 matching, address-indexed memory-map parsing, and a tested Renesas 78K0R command/data frame codec. It can prepare a complete 16 KB erase/program/verify frame plan for an exact firmware match. The plan is not sent to hardware. Erase/write controls remain disabled until the exact PCB revision, connector pinout, logic voltage, single-wire TOOL0 adapter behavior, RESET/FLMD0 control and firmware compatibility are confirmed and tested on safe bench hardware.
 
 ## Extracting the exact APK assets
 
@@ -78,3 +78,8 @@ The APK's visible profile labels associate 0459C and 0459G with Double Door and 
 ## Current app behavior
 
 The Android app can import the original APK selected by the user, locate the three known firmware assets in its ZIP container, extract them into memory, validate S-record structure/checksums, compute SHA-256 and compare the exact filename/hash against the selected profile. The APK and extracted proprietary firmware are not committed to this public repository. USB serial discovery/open/disconnect remains open-only; no boot-mode pulses or flash commands are sent.
+
+
+## Renesas protocol reference
+
+Renesas application note U19486EJ1V0AN explicitly includes uPD78F1201 under 78K0R/IB3 and documents command framing, data framing, status codes and timing. See [RENESAS_PROTOCOL_RESEARCH.md](RENESAS_PROTOCOL_RESEARCH.md) for the sourced summary and the remaining hardware integration gates.
