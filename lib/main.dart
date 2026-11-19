@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -46,17 +48,17 @@ class FirmwareInfo {
     required this.name,
     required this.size,
     required this.sha256,
-    required this.isSRecord,
     required this.validSRecord,
     required this.records,
+    required this.profileMatches,
     required this.message,
   });
   final String name;
   final int size;
   final String sha256;
-  final bool isSRecord;
   final bool validSRecord;
   final int records;
+  final bool profileMatches;
   final String message;
 }
 
@@ -72,8 +74,12 @@ class _DashboardPageState extends State<DashboardPage> {
   UsbPort? port;
   UsbDevice? connectedDevice;
   FirmwareInfo? firmware;
+  Uint8List? firmwareBytes;
+  final Map<String, Uint8List> apkFirmware = {};
   bool scanning = false;
+  bool importingApk = false;
   String connectionMessage = 'Connect a USB-C OTG adapter to detect the interface.';
+  String apkMessage = 'Original APK not imported.';
 
   @override
   void initState() {
@@ -120,7 +126,7 @@ class _DashboardPageState extends State<DashboardPage> {
       setState(() => connectionMessage = 'USB permission or connection was denied.');
       return;
     }
-    // Open the serial interface only. No bootloader or flash commands are sent.
+    // Open-only: do not toggle boot pins or send unverified MCU commands.
     await candidate.setPortParameters(
       9600,
       UsbPort.DATABITS_8,
@@ -134,7 +140,7 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() {
       port = candidate;
       connectedDevice = device;
-      connectionMessage = 'USB serial port opened. Programming protocol is not yet validated.';
+      connectionMessage = 'USB serial port opened. Original protocol is not yet validated.';
     });
   }
 
@@ -146,6 +152,64 @@ class _DashboardPageState extends State<DashboardPage> {
       connectionMessage = 'USB serial port disconnected.';
     });
     await current?.close();
+  }
+
+  Future<void> _importApk() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['apk'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final bytes = result.files.single.bytes;
+    if (bytes == null) {
+      _message('Could not read the selected APK.');
+      return;
+    }
+    setState(() => importingApk = true);
+    try {
+      final archive = ZipDecoder().decodeBytes(bytes);
+      final extracted = <String, Uint8List>{};
+      for (final entry in archive) {
+        if (!entry.isFile) continue;
+        final name = entry.name.replaceAll('\\\\', '/');
+        if (!name.contains('assets/flutter_assets/assets/firmwares/')) continue;
+        final baseName = name.split('/').last;
+        if (!boardProfiles.any((p) => p.firmware == baseName)) continue;
+        final content = entry.content;
+        if (content is List<int>) {
+          extracted[baseName] = Uint8List.fromList(content);
+        }
+      }
+      if (extracted.isEmpty) {
+        throw const FormatException('No supported DA41 firmware assets found in this APK.');
+      }
+      if (!mounted) return;
+      setState(() {
+        apkFirmware
+          ..clear()
+          ..addAll(extracted);
+        importingApk = false;
+        apkMessage = '${extracted.length} firmware file(s) extracted from the APK in memory. Nothing was uploaded.';
+      });
+      _loadApkFirmware();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        importingApk = false;
+        apkMessage = 'APK extraction failed: $e';
+      });
+    }
+  }
+
+  void _loadApkFirmware() {
+    final profile = boardProfiles[selectedIndex];
+    final bytes = apkFirmware[profile.firmware];
+    if (bytes == null) {
+      _message('Selected firmware is not present in the imported APK.');
+      return;
+    }
+    _inspectFirmware(profile.firmware, bytes);
   }
 
   Future<void> _importFirmware() async {
@@ -161,25 +225,27 @@ class _DashboardPageState extends State<DashboardPage> {
       _message('Could not read the selected file.');
       return;
     }
+    _inspectFirmware(file.name, bytes);
+  }
+
+  void _inspectFirmware(String name, Uint8List bytes) {
     final textData = utf8.decode(bytes, allowMalformed: true);
-    final looksSRecord = textData.trimLeft().startsWith('S');
-    final validation = looksSRecord
-        ? _validateSRecords(textData)
-        : (false, 0, 'Not recognized as Motorola S-record text; imported for inspection only.');
+    final validation = _validateSRecords(textData);
     final digest = sha256.convert(bytes).toString();
     final expected = boardProfiles[selectedIndex];
-    final profileMatches = file.name == expected.firmware && digest == expected.sha256;
+    final profileMatches = name == expected.firmware && digest == expected.sha256;
     final profileMessage = profileMatches
-        ? 'Exact filename and SHA-256 match for selected APK board profile.'
+        ? 'Exact filename and SHA-256 match for selected APK profile.'
         : 'PROFILE MISMATCH: expected ${expected.firmware} with SHA-256 ${expected.sha256}.';
     setState(() {
+      firmwareBytes = Uint8List.fromList(bytes);
       firmware = FirmwareInfo(
-        name: file.name,
+        name: name,
         size: bytes.length,
         sha256: digest,
-        isSRecord: looksSRecord,
         validSRecord: validation.$1,
         records: validation.$2,
+        profileMatches: profileMatches,
         message: '${validation.$3} ${profileMessage}',
       );
     });
@@ -281,6 +347,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   onChanged: (v) => setState(() {
                     selectedIndex = v ?? 0;
                     firmware = null;
+                    firmwareBytes = null;
                   }),
                   title: Text(p.name),
                   subtitle: Text('${p.board}  ·  Revision ${p.revision}'),
@@ -292,12 +359,25 @@ class _DashboardPageState extends State<DashboardPage> {
               icon: Icons.folder_open_rounded,
               title: 'FIRMWARE CATALOGUE',
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Expected profile file: ${selected.firmware}'),
-                const SizedBox(height: 10),
+                Text('Selected profile: ${selected.firmware}'),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: importingApk ? null : _importApk,
+                  icon: const Icon(Icons.archive_outlined),
+                  label: Text(importingApk ? 'Reading APK…' : 'Import original Samsung Swap APK'),
+                ),
+                Text(apkMessage, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                if (apkFirmware.containsKey(selected.firmware))
+                  TextButton.icon(
+                    onPressed: _loadApkFirmware,
+                    icon: const Icon(Icons.download_done),
+                    label: const Text('Load selected firmware from APK'),
+                  ),
+                const Divider(height: 22),
                 OutlinedButton.icon(
                   onPressed: _importFirmware,
                   icon: const Icon(Icons.upload_file_rounded),
-                  label: const Text('Import firmware file'),
+                  label: const Text('Import firmware file separately'),
                 ),
                 if (firmware != null) ...[
                   const Divider(height: 24),
@@ -306,30 +386,25 @@ class _DashboardPageState extends State<DashboardPage> {
                   SelectableText('SHA-256: ${firmware!.sha256}'),
                   const SizedBox(height: 6),
                   Text(firmware!.message),
-                  if (firmware!.isSRecord)
-                    Text('${firmware!.records} records · ${firmware!.validSRecord ? "Checksum OK" : "Invalid"}'),
+                  Text('${firmware!.records} S-records · ${firmware!.validSRecord ? "Checksum OK" : "Invalid / not S-record"}'),
+                  Text('Profile match: ${firmware!.profileMatches ? "YES" : "NO"}'),
                 ],
               ]),
             ),
             const SizedBox(height: 18),
             _sectionCard(
               icon: Icons.biotech_rounded,
-              title: 'ENGINE ANALYSIS · FROM ORIGINAL APK',
+              title: 'ENGINE ANALYSIS · ORIGINAL APK',
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Static analysis found programming-engine clues in the supplied APK:'),
+                  Text('Recovered engine clues: DA41Engine, SerialTransport, AndroidSerialTransport, eraseFlash, writeChunkFast, writeFlash and verify.'),
                   SizedBox(height: 8),
-                  Text('• DA41Engine / SerialTransport'),
-                  Text('• MCU clue: Renesas 78K0R / uPD78F1201'),
-                  Text('• TOOL0, DTR and RTS boot-mode clues'),
-                  Text('• Signature clue: 0xC0'),
-                  Text('• Mass Erase command clue: 0x20'),
-                  Text('• Chunked write, verify and reboot routine names'),
-                  SizedBox(height: 10),
-                  Text('These are reverse-engineering clues, not a validated command sequence. Exact packet formats, timing, voltage levels and board compatibility are still unconfirmed.'),
+                  Text('MCU label: Renesas 78K0R / uPD78F1201 (16 KB flash).'),
+                  Text('Boot-control clues: TOOL0, DTR, RTS and break pulses.'),
+                  Text('Protocol clues: silicon signature 0xC0 and mass-erase status 0x20.'),
                   SizedBox(height: 8),
-                  Text('Firmware assets identified: DA41-00814A.mot, DA41-00814D_0459G.mot and DA41-00814D_0459M.bin. Import the matching file manually; proprietary firmware binaries are not bundled in this public app.'),
+                  Text('These are static-analysis clues only. Exact packet framing, baud rate, timing, voltage levels and board compatibility are not confirmed.'),
                 ],
               ),
             ),
@@ -338,7 +413,7 @@ class _DashboardPageState extends State<DashboardPage> {
               icon: Icons.lock_outline_rounded,
               title: 'PROGRAMMING CONTROLS',
               child: const Text(
-                'Erase, write, verify and reboot controls remain locked until the exact PCB revision, connector pinout, electrical levels, bootloader protocol and firmware compatibility are independently confirmed. USB connection and firmware inspection do not send programming commands.',
+                'Erase, write, verify and reboot remain disabled. No programming command is sent. The APK identifies 0459C and 0459G as Double Door profiles and 0459M as Single Door, but does not establish that a 0459C/0459G PCB can safely accept 0459M firmware. Confirm exact PCB revision, pinout, logic voltage and firmware compatibility before any flash operation.',
               ),
             ),
           ],
