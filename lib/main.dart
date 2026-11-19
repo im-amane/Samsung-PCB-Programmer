@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
@@ -28,17 +27,18 @@ class SamsungPcbProgrammerApp extends StatelessWidget {
 }
 
 class BoardProfile {
-  const BoardProfile(this.name, this.board, this.firmware, this.revision);
+  const BoardProfile(this.name, this.board, this.firmware, this.revision, this.sha256);
   final String name;
   final String board;
   final String firmware;
   final String revision;
+  final String sha256;
 }
 
 const boardProfiles = <BoardProfile>[
-  BoardProfile('0459C · Double Door', 'DA41-00814A', 'DA41-00814A.mot', '0459C'),
-  BoardProfile('0459G · Double Door', 'DA41-00814D', 'DA41-00814D_0459G.mot', '0459G'),
-  BoardProfile('0459M · Single Door', 'DA41-00814D', 'DA41-00814D_0459M.bin', '0459M'),
+  BoardProfile('0459C · Double Door', 'DA41-00814A', 'DA41-00814A.mot', '0459C', '6d51f294e21cdbb2efa207f63fff41c69468eba86199d419578af9a98cac5f02'),
+  BoardProfile('0459G · Double Door', 'DA41-00814D', 'DA41-00814D_0459G.mot', '0459G', 'fc91858a2423324184ef708341e4a6929dfa8b39f53f7c479cbf152bec589873'),
+  BoardProfile('0459M · Single Door', 'DA41-00814D', 'DA41-00814D_0459M.bin', '0459M', '4e96a1f2e3c6f39c9af2e61e2f07b69c12123546e4d93365457800e5f76adfc9'),
 ];
 
 class FirmwareInfo {
@@ -153,16 +153,24 @@ class _DashboardPageState extends State<DashboardPage> {
     }
     final textData = utf8.decode(bytes, allowMalformed: true);
     final looksSRecord = textData.trimLeft().startsWith('S');
-    final validation = looksSRecord ? _validateSRecords(textData) : (false, 0, 'Binary/HEX format: imported and hashed; format-specific validation is pending.');
+    final validation = looksSRecord
+        ? _validateSRecords(textData)
+        : (false, 0, 'Not recognized as Motorola S-record text; imported for inspection only.');
+    final digest = sha256.convert(bytes).toString();
+    final expected = boardProfiles[selectedIndex];
+    final profileMatches = file.name == expected.firmware && digest == expected.sha256;
+    final profileMessage = profileMatches
+        ? 'Exact filename and SHA-256 match for selected APK board profile.'
+        : 'PROFILE MISMATCH: expected ${expected.firmware} with SHA-256 ${expected.sha256}.';
     setState(() {
       firmware = FirmwareInfo(
         name: file.name,
         size: bytes.length,
-        sha256: sha256.convert(bytes).toString(),
+        sha256: digest,
         isSRecord: looksSRecord,
         validSRecord: validation.$1,
         records: validation.$2,
-        message: validation.$3,
+        message: '${validation.$3} ${profileMessage}',
       );
     });
   }
