@@ -16,6 +16,15 @@ void main() {
       expect(result.endAddress, 1);
     });
 
+    test('accepts the S3/S7 record type used by the single-door image', () {
+      final result = FirmwareValidator.validateSRecords(
+        Uint8List.fromList(utf8.encode('S3060000000001F8\\nS70500000000FA\\n')),
+      );
+      expect(result.valid, isTrue);
+      expect(result.dataRecords, 1);
+      expect(result.dataBytes, 1);
+    });
+
     test('rejects a bad checksum', () {
       final result = FirmwareValidator.validateSRecords(
         Uint8List.fromList(utf8.encode('S10500000102F6\nS9030000FC\n')),
