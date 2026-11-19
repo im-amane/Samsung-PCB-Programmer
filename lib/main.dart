@@ -394,7 +394,7 @@ class _DashboardPageState extends State<DashboardPage> {
             const SizedBox(height: 18),
             _sectionCard(
               icon: Icons.biotech_rounded,
-              title: 'ENGINE ANALYSIS · ORIGINAL APK',
+              title: 'PROGRAMMING ENGINE · RENESAS 78K0R',
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -404,7 +404,9 @@ class _DashboardPageState extends State<DashboardPage> {
                   Text('Boot-control clues: TOOL0, DTR, RTS and break pulses.'),
                   Text('Protocol clues: silicon signature 0xC0 and mass-erase status 0x20.'),
                   SizedBox(height: 8),
-                  Text('These are static-analysis clues only. Exact packet framing, baud rate, timing, voltage levels and board compatibility are not confirmed. USB open does not configure a guessed baud rate or send data.'),
+                  Text('Renesas protocol codec is implemented: command/data frame encoding, checksum validation, ACK/NACK handling, and 1 KB block-range commands. Documented commands include reset, baud setup, chip erase, block erase, program, verify and silicon signature.'),
+                  SizedBox(height: 8),
+                  Text('No programming bytes are sent yet. The physical single-wire TOOL0 transport, RESET/FLMD0 control, adapter voltage, and 8N2/8N1 direction-specific serial behavior still need hardware confirmation.'),
                 ],
               ),
             ),
@@ -413,7 +415,7 @@ class _DashboardPageState extends State<DashboardPage> {
               icon: Icons.lock_outline_rounded,
               title: 'PROGRAMMING CONTROLS',
               child: const Text(
-                'Erase, write, verify and reboot remain disabled. No programming command is sent. The APK identifies 0459C and 0459G as Double Door profiles and 0459M as Single Door, but does not establish that a 0459C/0459G PCB can safely accept 0459M firmware. Confirm exact PCB revision, pinout, logic voltage and firmware compatibility before any flash operation.',
+                'Protocol frame generation is implemented and unit-tested, but the hardware transport is not connected to the target yet. Erase, write, verify and reboot remain disabled until the single-wire TOOL0 adapter, RESET/FLMD0 control, voltage levels and target-board wiring are verified. The APK labels 0459C/0459G as Double Door and 0459M as Single Door; that does not prove cross-model firmware compatibility.',
               ),
             ),
           ],
