@@ -47,6 +47,8 @@ jobs:
           if [ -f "$PLUGIN" ]; then
             sed -i 's/jcenter()/mavenCentral()/g' "$PLUGIN"
           fi
+      - name: Run unit tests
+        run: flutter test
       - name: Build debug APK
         run: flutter build apk --debug
       - name: Upload APK
