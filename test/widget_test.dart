@@ -28,6 +28,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Samsung Swap'), findsOneWidget);
+    final flashButton = find.widgetWithText(FilledButton, 'Erase + Write + Verify');
+    await reveal(tester, flashButton, dashboardScrollable());
+    expect(tester.widget<FilledButton>(flashButton).onPressed, isNull);
     final scrollable = dashboardScrollable();
 
     final profileHeading = find.text('TARGET FIRMWARE PROFILE');

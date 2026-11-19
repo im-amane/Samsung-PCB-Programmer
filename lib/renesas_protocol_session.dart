@@ -74,7 +74,7 @@ class RenesasProtocolSession {
     timing.validate();
   }
 
-  static const readyPulseTimeout = Duration(milliseconds: 100);
+  static const readyPulseTimeout = Duration(seconds: 5);
 
   final RenesasWireChannel channel;
   final RenesasSessionTiming timing;
@@ -116,7 +116,9 @@ class RenesasProtocolSession {
   ///
   /// Renesas U19486EJ1V0AN specifies a READY 00H pulse from target to
   /// programmer, two 00H synchronization bytes from programmer to target,
-  /// then the Reset command/status exchange at 9600 bps.
+  /// then the Reset command/status exchange at 9600 bps. The app allows five
+  /// seconds for the operator to trigger manual boot entry; the MCU's own
+  /// READY pulse timing after RESET release remains device-controlled.
   Future<void> synchronize() async {
     await channel.receiveMode();
     final ready = await channel.readRawBytes(1, readyPulseTimeout);

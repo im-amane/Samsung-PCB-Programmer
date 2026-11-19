@@ -102,6 +102,12 @@ class _DashboardPageState extends State<DashboardPage> {
   int usbBaudRate = 9600;
   bool readingSignature = false;
   String signatureMessage = 'Target signature not read.';
+  String? signatureDeviceName;
+  int? signatureFlashLastAddress;
+  Uint8List? firmwareBytes;
+  bool programming = false;
+  RenesasProgramProgress? programProgress;
+  String programMessage = 'Programming locked until firmware and target are verified.';
   String? connectedNativePath;
   List<String> nativePorts = [];
   usb_next.UsbDevice? connectedDevice;
@@ -179,6 +185,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _connect(usb_next.UsbDevice device) async {
+    if (programming) return;
     usb_next.UsbSerialPort? candidate;
     try {
       await usbTransport?.close();
@@ -217,6 +224,9 @@ class _DashboardPageState extends State<DashboardPage> {
         port = openedPort;
         usbTransport = usbLink;
         connectedDevice = device;
+        signatureDeviceName = null;
+        signatureFlashLastAddress = null;
+        signatureMessage = 'New USB connection. Read target signature again.';
         connectionMessage =
             'USB serial port opened at 9600 8N1. DTR/RTS left unchanged; no MCU command sent.';
       });
@@ -239,6 +249,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _connectNative(String path) async {
+    if (programming) return;
     libserial.SerialPort? candidate;
     try {
       await usbTransport?.close();
@@ -262,6 +273,9 @@ class _DashboardPageState extends State<DashboardPage> {
         connectedDevice = null;
         nativeTransport = RenesasSerialTransport(candidate!);
         connectedNativePath = path;
+        signatureDeviceName = null;
+        signatureFlashLastAddress = null;
+        signatureMessage = 'Native serial connection is not enabled for flash programming.';
         connectionMessage = 'Native libserialport opened $path. No baud rate, DTR/RTS, break pulse, or MCU data has been changed/sent.';
       });
     } catch (e) {
@@ -271,6 +285,10 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _disconnect() async {
+    if (programming) {
+      _message('Disconnect is locked while flash programming is running.');
+      return;
+    }
     final current = port;
     final usb = usbTransport;
     final native = nativeTransport;
@@ -280,6 +298,9 @@ class _DashboardPageState extends State<DashboardPage> {
       connectedDevice = null;
       nativeTransport = null;
       connectedNativePath = null;
+      signatureDeviceName = null;
+      signatureFlashLastAddress = null;
+      signatureMessage = 'Target signature cleared after disconnect.';
       connectionMessage = 'Serial interface disconnected.';
     });
     await usb?.close();
@@ -295,7 +316,10 @@ class _DashboardPageState extends State<DashboardPage> {
     }
     setState(() {
       readingSignature = true;
-      signatureMessage = 'Waiting for the target signature response...';
+      signatureDeviceName = null;
+      signatureFlashLastAddress = null;
+      signatureMessage = 'Waiting for READY pulse. Trigger the target boot-entry/reset sequence now...';
+      programMessage = 'Read a fresh target signature before programming.';
     });
     try {
       final session = RenesasProtocolSession(
@@ -309,6 +333,8 @@ class _DashboardPageState extends State<DashboardPage> {
       await session.synchronize();
       final signature = await session.readSiliconSignature();
       final deviceName = String.fromCharCodes(signature.sublist(9, 19)).trim();
+      final flashLastAddress =
+          signature[6] | (signature[7] << 8) | (signature[8] << 16);
       final hex = signature
           .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
           .join(' ')
@@ -316,16 +342,24 @@ class _DashboardPageState extends State<DashboardPage> {
       if (!mounted) return;
       setState(() {
         readingSignature = false;
-        signatureMessage = 'Read-only signature received: $deviceName · ${signature.length} bytes\n$hex';
+        signatureDeviceName = deviceName;
+        signatureFlashLastAddress = flashLastAddress;
+        signatureMessage =
+            'Read-only signature: $deviceName · flash end 0x${flashLastAddress.toRadixString(16).toUpperCase()} · ${signature.length} bytes\\n$hex';
+        programMessage = _programReadinessMessage;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         readingSignature = false;
-        signatureMessage = 'Signature read failed: $e';
+        signatureDeviceName = null;
+        signatureFlashLastAddress = null;
+        signatureMessage = 'Signature/synchronization failed: $e';
+        programMessage = 'Programming locked because target identity was not verified.';
       });
     }
   }
+
 
   Future<void> _importApk() async {
     final result = await FilePicker.platform.pickFiles(
@@ -428,7 +462,12 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _loadSelectedFirmware() async {
     final profile = boardProfiles[selectedIndex];
     if (profile.firmware.isEmpty) {
-      if (mounted) setState(() => firmware = null);
+      if (mounted) setState(() {
+        firmware = null;
+        firmwareBytes = null;
+        signatureDeviceName = null;
+        signatureFlashLastAddress = null;
+      });
       return;
     }
 
@@ -451,7 +490,12 @@ class _DashboardPageState extends State<DashboardPage> {
       _inspectFirmware(profile.firmware, bytes);
     } catch (e) {
       if (!mounted) return;
-      setState(() => firmware = null);
+      setState(() {
+        firmware = null;
+        firmwareBytes = null;
+        signatureDeviceName = null;
+        signatureFlashLastAddress = null;
+      });
       _message('Bundled firmware could not be loaded: $e');
     }
   }
@@ -486,6 +530,177 @@ class _DashboardPageState extends State<DashboardPage> {
     _inspectFirmware(file.name, bytes);
   }
 
+  bool get _canProgram {
+    final info = firmware;
+    return !programming &&
+        !readingSignature &&
+        usbTransport != null &&
+        firmwareBytes != null &&
+        info != null &&
+        info.validSRecord &&
+        info.profileMatches &&
+        info.protocolPlanReady &&
+        (signatureDeviceName ?? '').toUpperCase().contains('78F1201') &&
+        signatureFlashLastAddress == 0x3fff;
+  }
+
+  String get _programReadinessMessage {
+    if (programming) return 'Programming is in progress. Keep USB connected and do not reset or power off.';
+    if (usbTransport == null) return 'Connect an Android USB serial adapter first.';
+    if (readingSignature) return 'Waiting for target signature.';
+    if (signatureDeviceName == null) return 'Read and verify the target silicon signature first.';
+    if (!signatureDeviceName!.toUpperCase().contains('78F1201')) {
+      return 'Unsupported target MCU: expected uPD78F1201, received $signatureDeviceName.';
+    }
+    if (signatureFlashLastAddress != 0x3fff) {
+      return 'Unsupported flash range: expected 0x0000-0x3FFF (16 KB).';
+    }
+    final info = firmware;
+    if (info == null || firmwareBytes == null) return 'Load a firmware image first.';
+    if (!info.validSRecord) return 'Selected firmware is not a valid supported S-record image.';
+    if (!info.profileMatches) return 'Firmware filename/hash does not exactly match the selected board profile.';
+    if (!info.protocolPlanReady) return 'A complete 16 KB Renesas programming plan is not available for this firmware.';
+    return 'Preflight passed. Confirm the physical PCB revision and verified adapter wiring before chip erase.';
+  }
+
+  String _programStageLabel(RenesasProgramStage stage) {
+    switch (stage) {
+      case RenesasProgramStage.erase:
+        return 'Erasing target flash...';
+      case RenesasProgramStage.programCommand:
+        return 'Starting programming command...';
+      case RenesasProgramStage.programData:
+        return 'Writing firmware data...';
+      case RenesasProgramStage.internalVerify:
+        return 'Checking MCU internal verify...';
+      case RenesasProgramStage.verifyCommand:
+        return 'Starting explicit verify...';
+      case RenesasProgramStage.verifyData:
+        return 'Verifying firmware data...';
+      case RenesasProgramStage.complete:
+        return 'Programming and verify complete.';
+    }
+  }
+
+  Future<bool> _confirmProgramming(FirmwareInfo info) async {
+    var acknowledged = false;
+    final selected = boardProfiles[selectedIndex];
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: !programming,
+          builder: (dialogContext) => StatefulBuilder(
+            builder: (context, setDialogState) => AlertDialog(
+              title: const Text('Confirm chip erase and flash'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'This operation starts with a full-chip erase. A power loss, disconnect or reset during programming can leave the controller without working firmware.',
+                      ),
+                      const SizedBox(height: 12),
+                      Text('Selected PCB profile: ${selected.name}'),
+                      Text('Firmware: ${info.name}'),
+                      Text('SHA-256: ${info.sha256}'),
+                      Text('Target MCU: ${signatureDeviceName ?? 'unknown'}'),
+                      Text('Target flash end: 0x${(signatureFlashLastAddress ?? 0).toRadixString(16).toUpperCase()}'),
+                      const SizedBox(height: 12),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: acknowledged,
+                        onChanged: (value) =>
+                            setDialogState(() => acknowledged = value ?? false),
+                        title: const Text(
+                          'I checked the physical PCB sticker/revision, firmware compatibility, adapter voltage, and RESET/FLMD0/TOOL0 wiring.',
+                        ),
+                        controlAffinity: ListTileControlAffinity.leading,
+                      ),
+                      const Text(
+                        'The app does not control target VDD, RESET or FLMD0. The target must already be in flash-programming mode and the cable wiring must be independently verified.',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: acknowledged
+                      ? () => Navigator.of(dialogContext).pop(true)
+                      : null,
+                  child: const Text('ERASE AND PROGRAM'),
+                ),
+              ],
+            ),
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _programFirmware() async {
+    if (!_canProgram) {
+      setState(() => programMessage = _programReadinessMessage);
+      return;
+    }
+    final transport = usbTransport!;
+    final info = firmware!;
+    final bytes = firmwareBytes!;
+    final plan = RenesasProgramPlan.fromSRecord(bytes);
+    final confirmed = await _confirmProgramming(info);
+    if (!confirmed || !mounted) return;
+
+    setState(() {
+      programming = true;
+      programProgress = null;
+      programMessage = 'Starting destructive programming sequence...';
+    });
+
+    try {
+      final session = RenesasProtocolSession(
+        channel: RenesasUsbWireChannel(transport),
+        timing: const RenesasSessionTiming(
+          interFrame: Duration.zero,
+          commandTimeout: Duration(seconds: 3),
+          dataTimeout: Duration(seconds: 3),
+        ),
+      );
+      await session.program(
+        plan: plan,
+        confirmDestructiveErase: true,
+        onProgress: (progress) {
+          if (!mounted) return;
+          setState(() {
+            programProgress = progress;
+            programMessage = _programStageLabel(progress.stage);
+          });
+        },
+      );
+      if (mounted) {
+        setState(() {
+          programMessage =
+              'Programming and verify completed. Target remains in flash mode; no reset or power-off command was sent.';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          programMessage =
+              'Programming stopped with an error: $e. Flash contents may be incomplete; do not assume the board is operational.';
+        });
+        signatureDeviceName = null;
+        signatureFlashLastAddress = null;
+      }
+    } finally {
+      if (mounted) setState(() => programming = false);
+    }
+  }
+
   void _inspectFirmware(String name, Uint8List bytes) {
     final validation = FirmwareValidator.validateSRecords(bytes);
     final digest = FirmwareValidator.sha256Hex(bytes);
@@ -516,6 +731,11 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     }
     setState(() {
+      firmwareBytes = Uint8List.fromList(bytes);
+      signatureDeviceName = null;
+      signatureFlashLastAddress = null;
+      programProgress = null;
+      programMessage = 'Firmware changed. Read target signature again before programming.';
       firmware = FirmwareInfo(
         name: name,
         size: bytes.length,
@@ -682,10 +902,15 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: RadioListTile<int>(
                   value: i,
                   groupValue: selectedIndex,
-                  onChanged: (v) {
+                  onChanged: programming ? null : (v) {
                     setState(() {
                       selectedIndex = v ?? 0;
                       firmware = null;
+                      firmwareBytes = null;
+                      signatureDeviceName = null;
+                      signatureFlashLastAddress = null;
+                      programProgress = null;
+                      programMessage = 'Board profile changed. Read target signature again.';
                     });
                     _loadSelectedFirmware();
                   },
@@ -761,13 +986,12 @@ class _DashboardPageState extends State<DashboardPage> {
                 children: [
                   Text('Recovered engine clues: DA41Engine, SerialTransport, AndroidSerialTransport, eraseFlash, writeChunkFast, writeFlash and verify.'),
                   SizedBox(height: 8),
-                  Text('MCU label: Renesas 78K0R / uPD78F1201 (16 KB flash).'),
-                  Text('Boot-control clues: TOOL0, DTR, RTS and break pulses.'),
-                  Text('Protocol clues: silicon signature 0xC0 and mass-erase status 0x20.'),
+                  Text('MCU target: Renesas 78K0R / uPD78F1201 with a 16 KB flash range.'),
+                  Text('Android USB serial transport supports DTR/RTS direction control and hardware BREAK where the adapter driver supports it.'),
                   SizedBox(height: 8),
-                  Text('Renesas protocol codec is implemented: command/data frame encoding, checksum validation, ACK/NACK handling, and 1 KB block-range commands. Documented commands include reset, baud setup, chip erase, block erase, program, verify and silicon signature.'),
+                  Text('The app now receives the READY pulse, sends the two 0x00 synchronization bytes, performs the Reset handshake, reads the silicon signature, and can run the tested erase/program/verify session after strict preflight and explicit confirmation.'),
                   SizedBox(height: 8),
-                  Text('No programming bytes are sent yet. The physical single-wire TOOL0 transport, RESET/FLMD0 control, adapter voltage, and 8N2/8N1 direction-specific serial behavior still need hardware confirmation.'),
+                  Text('VDD, RESET and FLMD0 are not driven by the app. Board-specific wiring, logic voltage and boot-entry control must be verified before any destructive operation.'),
                 ],
               ),
             ),
@@ -778,7 +1002,7 @@ class _DashboardPageState extends State<DashboardPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Connect the app before releasing RESET so it can receive the Renesas READY pulse. The diagnostic then sends the two 0x00 synchronization bytes, Reset command and silicon-signature command only. It never erases or writes flash.'),
+                  const Text('Tap Read target signature, then trigger the cable's boot-entry/reset sequence within five seconds. After RESET release, the Renesas target emits READY within its documented 4.4-100 ms window. The app synchronizes and reads the signature. It does not control VDD, RESET or FLMD0.'),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: usbTransport == null || readingSignature
@@ -796,8 +1020,31 @@ class _DashboardPageState extends State<DashboardPage> {
             _sectionCard(
               icon: Icons.lock_outline_rounded,
               title: 'PROGRAMMING CONTROLS',
-              child: const Text(
-                'Android USB serial transport, configurable DTR/RTS direction profile, UART framing and the read-only silicon-signature transaction are implemented. The target must already be in Renesas flash mode for the signature check. Erase, write, verify and reboot remain disabled until the USB BREAK path, RESET/FLMD0 control, voltage levels and board-specific wiring are verified. The APK labels 0459C/0459G as Double Door and 0459M as Single Door; that does not prove cross-model firmware compatibility.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_programReadinessMessage),
+                  const SizedBox(height: 8),
+                  if (programProgress != null) ...[
+                    LinearProgressIndicator(
+                      value: programProgress!.fraction,
+                    ),
+                    const SizedBox(height: 6),
+                    Text('${programProgress!.completedFrames}/${programProgress!.totalFrames} protocol responses checked'),
+                  ],
+                  SelectableText(programMessage),
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    onPressed: _canProgram ? _programFirmware : null,
+                    icon: const Icon(Icons.flash_on_rounded),
+                    label: Text(programming ? 'Programming…' : 'Erase + Write + Verify'),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Only exact-profile 16 KB S-record images and a verified uPD78F1201/16 KB target pass preflight. The operation starts with a full-chip erase. The app does not reboot or power off the target.',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                ],
               ),
             ),
           ],
@@ -841,7 +1088,7 @@ class _DashboardPageState extends State<DashboardPage> {
         dense: true,
         title: Text(title),
         value: value,
-        onChanged: readingSignature ? null : onChanged,
+        onChanged: (readingSignature || programming) ? null : onChanged,
       );
 
   Widget _sectionCard({required IconData icon, required String title, required Widget child}) =>
