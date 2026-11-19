@@ -181,6 +181,9 @@ class Renesas78k0rProtocol {
     required int expectedCount,
     String operation = 'command',
   }) {
+    if (!response.isFinal) {
+      throw FormatException('The $operation response did not terminate with ETX.');
+    }
     if (response.data.length != expectedCount) {
       throw FormatException('Unexpected status length for $operation: expected $expectedCount, received ${response.data.length}.');
     }
