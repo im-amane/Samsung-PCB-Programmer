@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
-import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:usb_serial/usb_serial.dart';
@@ -52,6 +50,9 @@ class FirmwareInfo {
     required this.sha256,
     required this.validSRecord,
     required this.records,
+    required this.dataBytes,
+    required this.startAddress,
+    required this.endAddress,
     required this.profileMatches,
     required this.message,
   });
@@ -60,6 +61,9 @@ class FirmwareInfo {
   final String sha256;
   final bool validSRecord;
   final int records;
+  final int dataBytes;
+  final int? startAddress;
+  final int? endAddress;
   final bool profileMatches;
   final String message;
 }
@@ -240,12 +244,17 @@ class _DashboardPageState extends State<DashboardPage> {
         sha256: digest,
         validSRecord: validation.valid,
         records: validation.totalRecords,
+        dataBytes: validation.dataBytes,
+        startAddress: validation.startAddress,
+        endAddress: validation.endAddress,
         profileMatches: profileMatches,
         message: '${validation.message} ${profileMessage}',
       );
     });
   }
 
+
+  String _formatAddress(int? value) => value == null ? 'unknown' : '0x${value.toRadixString(16).toUpperCase().padLeft(4, '0')}';
 
   void _message(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
@@ -354,8 +363,10 @@ class _DashboardPageState extends State<DashboardPage> {
                   SelectableText('SHA-256: ${firmware!.sha256}'),
                   const SizedBox(height: 6),
                   Text(firmware!.message),
-                  Text('${firmware!.records} S-records · ${firmware!.validSRecord ? "Structure and checksums OK" : "Invalid / not S-record"}'),
-                  Text('Profile match: ${firmware!.profileMatches ? "YES" : "NO"}'),
+                  Text('${firmware!.records} total records · ${firmware!.dataBytes} firmware bytes'),
+                  Text('Address range: ${_formatAddress(firmware!.startAddress)} - ${_formatAddress(firmware!.endAddress)}'),
+                  Text('S-record validation: ${firmware!.validSRecord ? "PASS" : "FAIL"}'),
+                  Text('Exact profile match: ${firmware!.profileMatches ? "YES" : "NO"}'),
                 ],
               ]),
             ),
