@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:usb_serial/usb_serial.dart';
 import 'package:flutter_libserialport/flutter_libserialport.dart' as libserial;
 
@@ -105,6 +106,7 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
     _scanUsb();
+    _loadSelectedFirmware();
   }
 
   @override
@@ -317,6 +319,37 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<void> _loadSelectedFirmware() async {
+    final profile = boardProfiles[selectedIndex];
+    if (profile.firmware.isEmpty) {
+      if (mounted) setState(() => firmware = null);
+      return;
+    }
+
+    // Prefer the locally imported APK copy when present, otherwise use the
+    // verified firmware asset bundled into this independent application.
+    final imported = apkFirmware[profile.firmware];
+    if (imported != null) {
+      _inspectFirmware(profile.firmware, imported);
+      return;
+    }
+
+    try {
+      final data = await rootBundle.load('assets/firmwares/${profile.firmware}');
+      final bytes = Uint8List.view(
+        data.buffer,
+        data.offsetInBytes,
+        data.lengthInBytes,
+      );
+      if (!mounted) return;
+      _inspectFirmware(profile.firmware, bytes);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => firmware = null);
+      _message('Bundled firmware could not be loaded: $e');
+    }
+  }
+
   void _loadApkFirmware() {
     final profile = boardProfiles[selectedIndex];
     if (profile.firmware.isEmpty) {
@@ -506,10 +539,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: RadioListTile<int>(
                   value: i,
                   groupValue: selectedIndex,
-                  onChanged: (v) => setState(() {
-                    selectedIndex = v ?? 0;
-                    firmware = null;
-                  }),
+                  onChanged: (v) {
+                    setState(() {
+                      selectedIndex = v ?? 0;
+                      firmware = null;
+                    });
+                    _loadSelectedFirmware();
+                  },
                   title: Text(p.name),
                   subtitle: Text('${p.board}  ·  Revision ${p.revision}'),
                 ),
