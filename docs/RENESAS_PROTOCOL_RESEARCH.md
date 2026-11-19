@@ -8,10 +8,12 @@ Research date: 2026-11-19
 - Renesas lists **uPD78F1201** as a 78K0R/IB3 device and includes it in the PRM78F1235 parameter-file group for Renesas Flash Programmer V2 / MINICUBE2. Sources:
   - https://www.renesas.com/en/document/mat/list-mcus-supported-renesas-flash-programmer-v2
   - https://www.renesas.com/en/document/mat/flash-memory-programmer-parameter-files-and-supported-mcus
-- A Renesas 78K0R programmer application note documents a serial-command programming architecture, programming-mode entry, TOOL0 communication, and command families including status, reset, baud-rate set, chip erase, block erase, programming, verify, blank check and silicon signature. The available application note U18433 is for 78K0R/Kx3, not the exact uPD78F1201 IB3 derivative:
-  - https://www.renesas.com/en/document/apn/78k0rkx3-flash-memory-programming-programmer
-- Renesas identifies uPD78F1201 as part of the 78K0R/IB3 family, distinct from the 78K0R/Ix3 products covered by application note U19486. Do not silently substitute a sibling MCU's timing, parameter file, or command behavior:
+- Renesas application note **U19486EJ1V0AN00** explicitly lists μPD78F1201 among its applicable devices and includes the 78K0R/Ix3 silicon-signature table naming 78F1201/78F1203. It documents the command/data frame format, UART mode, programming-mode entry, TOOL0 communication, reset, baud-rate set, chip erase, block erase, programming, verify, blank check and silicon-signature commands. This is the correct family-level programmer reference for the MCU named by the APK:
   - https://www.renesas.com/en/document/apn/78k0rkx3-l-78k0rix3-78k0rkx3-c-flash-memory-programmingfor-programmer
+
+  Renesas note U18433 is a separate 78K0R/Kx3 programmer note and should not be confused with U19486:
+  - https://www.renesas.com/en/document/apn/78k0rkx3-flash-memory-programming-programmer
+- The U19486 document lists uPD78F1201 in the applicable-device table and its Ix3 silicon-signature table lists 78F1201/78F1203. It uses the Kx3-L as the representative device and cautions readers to consult the corresponding device user manual for device-specific characteristics. The 78K0R/IB3 hardware user manual is U19018E. Device-specific electrical/timing parameters and Samsung-board wiring still require confirmation; do not substitute another device's parameter values.
 - A third-party programmer reference lists generic 78K0R signals as GND, VCC, RESET, TOOL0 and FLMD0 and offers erase/blank-check/program/verify/start operations. This is a useful cross-check only, not Samsung PCB connector documentation:
   - https://www.jcwolfram.de/projekte/uprog2/reference.php
 
