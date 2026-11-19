@@ -29,6 +29,9 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 
 The public repository does not redistribute the original APK or its proprietary firmware assets. Importing the APK on your own device avoids committing those binaries to a public repository.
 
+## Bench testing
+Follow [the bench test checklist](docs/BENCH_TEST_CHECKLIST.md) for the next controlled session. The current build supports APK firmware extraction/validation and USB open/close diagnostics only.
+
 ## Conversion warning
 
 The original app labels 0459C and 0459G as Double Door and 0459M as Single Door. This is a firmware/profile label mapping, not proof that the 0459M image is compatible with every 0459C/0459G PCB. The app intentionally does not offer erase/write until compatibility and the target protocol are independently validated. See [the firmware comparison report](docs/DA41_FIRMWARE_COMPARISON.md).
