@@ -52,3 +52,8 @@ flutter pub get
 flutter test
 flutter build apk --debug
 ```
+
+
+## Hardware selection
+
+See [docs/HARDWARE_SELECTION.md](docs/HARDWARE_SELECTION.md) for the verified Renesas PG-FP6 support, a candidate Android-compatible FT232 interface, purchase cautions, and the hardware validation gate. The FT232 board is not a ready-made TOOL0 programmer.
