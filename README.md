@@ -8,7 +8,7 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 ## Included in this build
 - No third-party account, activation, or license-verification flow in this independent app
 - Board selector including all five board labels recovered from the original AOT snapshot; only the three profiles with firmware assets in the supplied APK are marked firmware-backed
-- USB OTG serial-device discovery and connection
+- Android USB-host serial discovery/permission plus the same `flutter_libserialport` native serial backend recovered from the original APK (endpoint discovery/open/close; break, DTR/RTS and line configuration are not activated yet)
 - Import the original Samsung Swap APK locally and extract its three DA41 firmware assets plus four original image assets (app logo and board references) into app memory; the APK and extracted binaries are not uploaded or committed
 - Firmware file import, strict Motorola S-record structure/checksum/termination validation, address-indexed memory-map parsing, overlap/gap checks, and generic data-block preparation
 - Renesas 78K0R command/data frame codec with checksums, response validation, ACK/NACK handling, erase/program/verify/signature frame builders, complete 16 KB frame-plan preparation, and unit tests
@@ -27,7 +27,7 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 3. Tap **Import original Samsung Swap APK** and choose your local `Samsung_Swap.apk`.
 4. The app extracts the three known firmware assets and four original image assets in memory. The original app logo and DA41-00814D board references are then displayed. Tap **Load selected firmware from APK**.
 5. Check the record/checksum result and the exact SHA-256 profile match.
-6. USB scan/connect currently opens the serial port only. It does not assume a baud rate, change boot pins, or send flash commands.
+6. USB scan/connect currently opens the Android USB serial port or a native libserialport endpoint only. It does not assume a baud rate, change DTR/RTS/TOOL0/RESET/FLMD0, assert BREAK, or send flash commands.
 
 The public repository does not redistribute the original APK or its proprietary firmware assets. Importing the APK on your own device avoids committing those binaries to a public repository.
 
