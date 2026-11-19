@@ -138,6 +138,16 @@ class _DashboardPageState extends State<DashboardPage> {
     });
   }
 
+  Future<void> _disconnect() async {
+    final current = port;
+    setState(() {
+      port = null;
+      connectedDevice = null;
+      connectionMessage = 'USB serial port disconnected.';
+    });
+    await current?.close();
+  }
+
   Future<void> _importFirmware() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -239,6 +249,12 @@ class _DashboardPageState extends State<DashboardPage> {
                   icon: const Icon(Icons.usb_rounded),
                   label: Text(scanning ? 'Scanning…' : 'Scan USB devices'),
                 ),
+                if (port != null)
+                  TextButton.icon(
+                    onPressed: _disconnect,
+                    icon: const Icon(Icons.link_off_rounded),
+                    label: const Text('Disconnect'),
+                  ),
                 if (devices.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   ...devices.map((d) => ListTile(
@@ -262,7 +278,10 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: RadioListTile<int>(
                   value: i,
                   groupValue: selectedIndex,
-                  onChanged: (v) => setState(() => selectedIndex = v ?? 0),
+                  onChanged: (v) => setState(() {
+                    selectedIndex = v ?? 0;
+                    firmware = null;
+                  }),
                   title: Text(p.name),
                   subtitle: Text('${p.board}  ·  Revision ${p.revision}'),
                 ),
