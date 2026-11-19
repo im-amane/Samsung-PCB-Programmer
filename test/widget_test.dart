@@ -28,11 +28,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Samsung Swap'), findsOneWidget);
-    final flashButton = find.widgetWithText(FilledButton, 'Erase + Write + Verify');
-    await reveal(tester, flashButton, dashboardScrollable());
-    expect(tester.widget<FilledButton>(flashButton).onPressed, isNull);
-    final scrollable = dashboardScrollable();
-
     final profileHeading = find.text('TARGET FIRMWARE PROFILE');
     await reveal(tester, profileHeading, scrollable);
     expect(profileHeading, findsOneWidget);
@@ -44,6 +39,15 @@ void main() {
     final frenchDoor = find.text('00838A · French Door');
     await reveal(tester, frenchDoor, scrollable);
     expect(frenchDoor, findsOneWidget);
+  });
+
+  testWidgets('flash controls stay disabled until target signature is verified', (tester) async {
+    await tester.pumpWidget(const SamsungPcbProgrammerApp());
+    await tester.pumpAndSettle();
+
+    final flashButton = find.widgetWithText(FilledButton, 'Erase + Write + Verify');
+    await reveal(tester, flashButton, dashboardScrollable());
+    expect(tester.widget<FilledButton>(flashButton).onPressed, isNull);
   });
 
   testWidgets('default board loads its bundled verified firmware', (tester) async {
