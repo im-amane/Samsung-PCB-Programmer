@@ -55,7 +55,7 @@ void main() {
     await reveal(tester, firmwareName, scrollable);
     expect(firmwareName, findsOneWidget);
     expect(find.text('Exact profile match: YES'), findsOneWidget);
-    expect(find.text('Renesas 16 KB frame plan: READY (no bytes sent to PCB)'), findsOneWidget);
+    expect(find.text('Renesas 16 KB frame plan: READY (preflight required before programming)'), findsOneWidget);
   });
 
   testWidgets('0459G profile selects its own verified firmware', (tester) async {

@@ -362,6 +362,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
 
   Future<void> _importApk() async {
+    if (programming) return;
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['apk'],
@@ -515,6 +516,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _importFirmware() async {
+    if (programming) return;
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['mot', 'srec', 's19', 's28', 's37', 'bin'],
@@ -666,8 +668,8 @@ class _DashboardPageState extends State<DashboardPage> {
         channel: RenesasUsbWireChannel(transport),
         timing: const RenesasSessionTiming(
           interFrame: Duration.zero,
-          commandTimeout: Duration(seconds: 3),
-          dataTimeout: Duration(seconds: 3),
+          commandTimeout: Duration(seconds: 10),
+          dataTimeout: Duration(seconds: 5),
         ),
       );
       await session.program(
@@ -685,6 +687,8 @@ class _DashboardPageState extends State<DashboardPage> {
         setState(() {
           programMessage =
               'Programming and verify completed. Target remains in flash mode; no reset or power-off command was sent.';
+          signatureDeviceName = null;
+          signatureFlashLastAddress = null;
         });
       }
     } catch (e) {
@@ -927,7 +931,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 Text('Selected profile: ${selected.firmware.isEmpty ? 'No firmware bundled in supplied APK' : selected.firmware}'),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: importingApk ? null : _importApk,
+                  onPressed: (importingApk || programming) ? null : _importApk,
                   icon: const Icon(Icons.archive_outlined),
                   label: Text(importingApk ? 'Reading APK…' : 'Import original Samsung Swap APK'),
                 ),
@@ -945,19 +949,19 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                 if (apkAssets.isNotEmpty)
                   OutlinedButton.icon(
-                    onPressed: _exportApkAssets,
+                    onPressed: programming ? null : _exportApkAssets,
                     icon: const Icon(Icons.save_alt_rounded),
                     label: const Text('Export all original Flutter assets as ZIP'),
                   ),
                 if (selected.firmware.isNotEmpty && apkFirmware.containsKey(selected.firmware))
                   TextButton.icon(
-                    onPressed: _loadApkFirmware,
+                    onPressed: programming ? null : _loadApkFirmware,
                     icon: const Icon(Icons.download_done),
                     label: const Text('Load selected firmware from APK'),
                   ),
                 const Divider(height: 22),
                 OutlinedButton.icon(
-                  onPressed: _importFirmware,
+                  onPressed: programming ? null : _importFirmware,
                   icon: const Icon(Icons.upload_file_rounded),
                   label: const Text('Import S-record firmware file separately'),
                 ),
@@ -970,7 +974,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   Text(firmware!.message),
                   Text('${firmware!.records} total records · ${firmware!.dataBytes} firmware bytes'),
                   Text('${firmware!.preparedBlocks} generic data blocks prepared for protocol integration'),
-                  Text('Renesas 16 KB frame plan: ${firmware!.protocolPlanReady ? "READY" : "NOT READY"} (no bytes sent to PCB)'),
+                  Text('Renesas 16 KB frame plan: ${firmware!.protocolPlanReady ? "READY" : "NOT READY"} (preflight required before programming)'),
                   Text('Address range: ${_formatAddress(firmware!.startAddress)} - ${_formatAddress(firmware!.endAddress)}'),
                   Text('S-record validation: ${firmware!.validSRecord ? "PASS" : "FAIL"}'),
                   Text('Exact profile match: ${firmware!.profileMatches ? "YES" : "NO"}'),
@@ -1005,7 +1009,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   const Text('Tap Read target signature, then trigger the cable's boot-entry/reset sequence within five seconds. After RESET release, the Renesas target emits READY within its documented 4.4-100 ms window. The app synchronizes and reads the signature. It does not control VDD, RESET or FLMD0.'),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
-                    onPressed: usbTransport == null || readingSignature
+                    onPressed: usbTransport == null || readingSignature || programming
                         ? null
                         : _readSiliconSignature,
                     icon: const Icon(Icons.fingerprint),
