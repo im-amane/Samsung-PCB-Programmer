@@ -11,14 +11,8 @@ void main() {
     expect(find.text('TARGET FIRMWARE PROFILE'), findsOneWidget);
 
     final frenchDoor = find.text('00838A · French Door');
-    await tester.scrollUntilVisible(
-      frenchDoor,
-      300,
-      scrollable: find.descendant(
-        of: find.byType(Scrollable).first,
-        matching: find.byType(Scrollable),
-      ),
-    );
+    await tester.ensureVisible(frenchDoor);
+    await tester.pumpAndSettle();
     expect(frenchDoor, findsOneWidget);
   });
 }
