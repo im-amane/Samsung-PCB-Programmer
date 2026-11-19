@@ -80,7 +80,6 @@ class _DashboardPageState extends State<DashboardPage> {
   UsbPort? port;
   UsbDevice? connectedDevice;
   FirmwareInfo? firmware;
-  Uint8List? firmwareBytes;
   final Map<String, Uint8List> apkFirmware = {};
   bool scanning = false;
   bool importingApk = false;
@@ -121,27 +120,32 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _connect(UsbDevice device) async {
-    await port?.close();
-    final candidate = await device.create();
-    if (candidate == null) {
-      setState(() => connectionMessage = 'No serial driver is available for this USB device.');
-      return;
+    try {
+      await port?.close();
+      final candidate = await device.create();
+      if (candidate == null) {
+        if (mounted) setState(() => connectionMessage = 'No serial driver is available for this USB device.');
+        return;
+      }
+      final opened = await candidate.open();
+      if (!opened) {
+        await candidate.close();
+        if (mounted) setState(() => connectionMessage = 'USB permission or connection was denied.');
+        return;
+      }
+      // Open-only: do not guess a baud rate, toggle boot pins, or send MCU commands.
+      if (!mounted) {
+        await candidate.close();
+        return;
+      }
+      setState(() {
+        port = candidate;
+        connectedDevice = device;
+        connectionMessage = 'USB serial port opened without sending data or changing serial parameters. Original protocol is not yet validated.';
+      });
+    } catch (e) {
+      if (mounted) setState(() => connectionMessage = 'USB connection failed: $e');
     }
-    final opened = await candidate.open();
-    if (!opened) {
-      setState(() => connectionMessage = 'USB permission or connection was denied.');
-      return;
-    }
-    // Open-only: do not guess a baud rate, toggle boot pins, or send MCU commands.
-    if (!mounted) {
-      await candidate.close();
-      return;
-    }
-    setState(() {
-      port = candidate;
-      connectedDevice = device;
-      connectionMessage = 'USB serial port opened without sending data or changing serial parameters. Original protocol is not yet validated.';
-    });
   }
 
   Future<void> _disconnect() async {
@@ -237,7 +241,6 @@ class _DashboardPageState extends State<DashboardPage> {
         ? 'Exact filename and SHA-256 match for selected APK profile.'
         : 'PROFILE MISMATCH: expected ${expected.firmware} with SHA-256 ${expected.sha256}.';
     setState(() {
-      firmwareBytes = Uint8List.fromList(bytes);
       firmware = FirmwareInfo(
         name: name,
         size: bytes.length,
@@ -324,7 +327,6 @@ class _DashboardPageState extends State<DashboardPage> {
                   onChanged: (v) => setState(() {
                     selectedIndex = v ?? 0;
                     firmware = null;
-                    firmwareBytes = null;
                   }),
                   title: Text(p.name),
                   subtitle: Text('${p.board}  ·  Revision ${p.revision}'),
