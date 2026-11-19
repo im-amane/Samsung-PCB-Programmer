@@ -10,6 +10,23 @@ void main() {
       expect(Renesas78k0rProtocol.targetToProgrammerStopBits, 1);
     });
 
+    test('decodes a complete 78K0R/Ix3 silicon signature frame', () {
+      final signature = <int>[
+        0x10, 0x7f, 0x04, 0xdc, 0xfd, 0xfd, 0xff, 0x3f, 0x00,
+        ...'D78F1201  '.codeUnits,
+        0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff,
+      ];
+      final length = signature.length;
+      final checksum = (-(length + signature.fold<int>(0, (a, b) => a + b))) & 0xff;
+      final frame = [0x02, length, ...signature, checksum, 0x03];
+      final decoded = Renesas78k0rProtocol.decodeSiliconSignatureFrame(frame);
+      expect(decoded.vendor, 0x10);
+      expect(decoded.deviceName, 'D78F1201');
+      expect(decoded.flashLastAddress, 0x003fff);
+      expect(decoded.bootBlock, 0x03);
+      expect(decoded.raw, signature);
+    });
+
     test('builds the documented chip erase frame exactly', () {
       expect(
         Renesas78k0rProtocol.chipEraseFrame(),
