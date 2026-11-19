@@ -16,6 +16,17 @@ class SRecordValidation {
 class FirmwareValidator {
   static String sha256Hex(Uint8List bytes) => sha256.convert(bytes).toString();
 
+  /// Stable fingerprint for S-record text across CRLF/LF checkout differences.
+  /// The original APK uses CRLF and ends with a newline; GitHub text files may
+  /// use LF and omit the final newline. This canonical form makes the same
+  /// firmware data compare identically without changing the raw-file digest.
+  static String canonicalSRecordSha256Hex(Uint8List bytes) {
+    final source = utf8.decode(bytes, allowMalformed: false);
+    var normalized = source.replaceAll('\\r\\n', '\\n').replaceAll('\\r', '\\n');
+    if (!normalized.endsWith('\\n')) normalized = '$normalized\\n';
+    return sha256.convert(utf8.encode(normalized)).toString();
+  }
+
   static SRecordValidation validateSRecords(Uint8List bytes) {
     late final String source;
     try {
