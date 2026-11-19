@@ -14,10 +14,10 @@ class _FakeChannel implements RenesasWireChannel {
   _FakeChannel(this.responses);
 
   @override
-  Future<void> transmitMode() async => txCount++;
+  Future<void> transmitMode() async { txCount++; }
 
   @override
-  Future<void> receiveMode() async => rxCount++;
+  Future<void> receiveMode() async { rxCount++; }
 
   @override
   Future<void> write(Uint8List bytes) async => writes.add(Uint8List.fromList(bytes));
@@ -33,6 +33,28 @@ Uint8List _statusFrame(List<int> statuses) {
   final length = statuses.length;
   final sum = (-(length + statuses.fold<int>(0, (a, b) => a + b))) & 0xff;
   return Uint8List.fromList([0x02, length, ...statuses, sum, 0x03]);
+}
+
+String _s3Record(int address, List<int> data) {
+  final bytes = <int>[
+    4 + data.length + 1,
+    (address >> 24) & 0xff,
+    (address >> 16) & 0xff,
+    (address >> 8) & 0xff,
+    address & 0xff,
+    ...data,
+  ];
+  final sum = bytes.fold<int>(0, (a, b) => a + b);
+  return 'S3${[...bytes, (~sum) & 0xff].map((b) => b.toRadixString(16).padLeft(2, '0')).join().toUpperCase()}';
+}
+
+Uint8List _full16kS3Image() {
+  final lines = <String>[];
+  for (var address = 0; address < 0x4000; address += 64) {
+    lines.add(_s3Record(address, List<int>.generate(64, (i) => (address + i) & 0xff)));
+  }
+  lines.add('S70500000000FA');
+  return Uint8List.fromList(utf8.encode('${lines.join('\\n')}\\n'));
 }
 
 void main() {
@@ -53,7 +75,7 @@ void main() {
 
       expect(await session.readSiliconSignature(), [0x12, 0x34]);
       expect(channel.writes, hasLength(1));
-      expect(channel.writes.single, [0x01, 0x01, 0xc0, 0x3e, 0x03]);
+      expect(channel.writes.single, [0x01, 0x01, 0xc0, 0x3f, 0x03]);
       expect(channel.txCount, 1);
       expect(channel.rxCount, 1);
     });
@@ -68,12 +90,11 @@ void main() {
           dataTimeout: Duration(seconds: 1),
         ),
       );
-      final firmware = Uint8List.fromList(utf8.encode(
-        'S3060000000001F8\nS70500000000FA\n',
-      ));
-      // An incomplete image cannot produce a program plan, so this assertion
-      // checks the plan parser independently of any hardware transaction.
-      expect(() => RenesasProgramPlan.fromSRecord(firmware), throwsFormatException);
+      final plan = RenesasProgramPlan.fromSRecord(_full16kS3Image());
+      await expectLater(
+        session.program(plan: plan, confirmDestructiveErase: false),
+        throwsStateError,
+      );
       expect(channel.writes, isEmpty);
     });
   });
