@@ -80,6 +80,37 @@ void main() {
       expect(channel.rxCount, 1);
     });
 
+    test('sends erase, program and verify frames and checks every status', () async {
+      final plan = RenesasProgramPlan.fromSRecord(_full16kS3Image());
+      final responses = <Uint8List>[
+        _statusFrame([0x06]),
+        _statusFrame([0x06]),
+        ...List<Uint8List>.generate(64, (_) => _statusFrame([0x06, 0x06])),
+        _statusFrame([0x06]),
+        ...List<Uint8List>.generate(64, (_) => _statusFrame([0x06, 0x06])),
+      ];
+      final channel = _FakeChannel(responses);
+      final session = RenesasProtocolSession(
+        channel: channel,
+        timing: const RenesasSessionTiming(
+          interFrame: Duration.zero,
+          commandTimeout: Duration(seconds: 1),
+          dataTimeout: Duration(seconds: 1),
+        ),
+      );
+
+      await session.program(plan: plan, confirmDestructiveErase: true);
+
+      expect(channel.writes, hasLength(131));
+      expect(channel.writes.first, plan.eraseFrame);
+      expect(channel.writes[1], plan.programCommandFrame);
+      expect(channel.writes[66], plan.verifyCommandFrame);
+      expect(channel.writes.last, plan.verifyDataFrames.last);
+      expect(channel.txCount, 131);
+      expect(channel.rxCount, 131);
+      expect(responses, isEmpty);
+    });
+
     test('refuses destructive programming without explicit erase confirmation', () async {
       final channel = _FakeChannel([]);
       final session = RenesasProtocolSession(
