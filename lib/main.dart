@@ -11,6 +11,7 @@ import 'package:flutter_libserialport/flutter_libserialport.dart' as libserial;
 import 'firmware_validator.dart';
 import 'srecord_image.dart';
 import 'renesas_program_plan.dart';
+import 'renesas_protocol_session.dart';
 import 'renesas_serial_transport.dart';
 import 'renesas_usb_serial_transport.dart';
 
@@ -99,6 +100,8 @@ class _DashboardPageState extends State<DashboardPage> {
   bool receiveDtr = false;
   bool receiveRts = false;
   int usbBaudRate = 9600;
+  bool readingSignature = false;
+  String signatureMessage = 'Target signature not read.';
   String? connectedNativePath;
   List<String> nativePorts = [];
   UsbDevice? connectedDevice;
@@ -259,6 +262,45 @@ class _DashboardPageState extends State<DashboardPage> {
     await usb?.close();
     await current?.close();
     native?.close();
+  }
+
+  Future<void> _readSiliconSignature() async {
+    final transport = usbTransport;
+    if (transport == null) {
+      setState(() => signatureMessage = 'Connect an Android USB serial adapter first.');
+      return;
+    }
+    setState(() {
+      readingSignature = true;
+      signatureMessage = 'Waiting for the target signature response...';
+    });
+    try {
+      final session = RenesasProtocolSession(
+        channel: RenesasUsbWireChannel(transport),
+        timing: const RenesasSessionTiming(
+          interFrame: Duration.zero,
+          commandTimeout: Duration(seconds: 2),
+          dataTimeout: Duration(seconds: 2),
+        ),
+      );
+      final signature = await session.readSiliconSignature();
+      final deviceName = String.fromCharCodes(signature.sublist(9, 19)).trim();
+      final hex = signature
+          .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+          .join(' ')
+          .toUpperCase();
+      if (!mounted) return;
+      setState(() {
+        readingSignature = false;
+        signatureMessage = 'Read-only signature received: $deviceName · ${signature.length} bytes\\n$hex';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        readingSignature = false;
+        signatureMessage = 'Signature read failed: $e';
+      });
+    }
   }
 
   Future<void> _importApk() async {
@@ -702,6 +744,27 @@ class _DashboardPageState extends State<DashboardPage> {
                   Text('Renesas protocol codec is implemented: command/data frame encoding, checksum validation, ACK/NACK handling, and 1 KB block-range commands. Documented commands include reset, baud setup, chip erase, block erase, program, verify and silicon signature.'),
                   SizedBox(height: 8),
                   Text('No programming bytes are sent yet. The physical single-wire TOOL0 transport, RESET/FLMD0 control, adapter voltage, and 8N2/8N1 direction-specific serial behavior still need hardware confirmation.'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            _sectionCard(
+              icon: Icons.fingerprint_rounded,
+              title: 'READ-ONLY SILICON SIGNATURE',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Target must already be in Renesas flash-programming mode. This sends only the silicon-signature command (0xC0), never erase or write. Confirm adapter wiring, voltage and DTR/RTS profile first.'),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: usbTransport == null || readingSignature
+                        ? null
+                        : _readSiliconSignature,
+                    icon: const Icon(Icons.fingerprint),
+                    label: Text(readingSignature ? 'Reading signature…' : 'Read target signature'),
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(signatureMessage),
                 ],
               ),
             ),
