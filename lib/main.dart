@@ -7,6 +7,7 @@ import 'package:usb_serial/usb_serial.dart';
 
 import 'firmware_validator.dart';
 import 'srecord_image.dart';
+import 'renesas_program_plan.dart';
 
 void main() => runApp(const SamsungPcbProgrammerApp());
 
@@ -57,6 +58,7 @@ class FirmwareInfo {
     required this.profileMatches,
     required this.message,
     required this.preparedBlocks,
+    required this.protocolPlanReady,
   });
   final String name;
   final int size;
@@ -69,6 +71,7 @@ class FirmwareInfo {
   final bool profileMatches;
   final String message;
   final int preparedBlocks;
+  final bool protocolPlanReady;
 }
 
 class DashboardPage extends StatefulWidget {
@@ -245,12 +248,17 @@ class _DashboardPageState extends State<DashboardPage> {
         : 'PROFILE MISMATCH: expected ${expected.firmware} with SHA-256 ${expected.sha256}.';
     SRecordImage? parsedImage;
     var preparedBlocks = 0;
+    var protocolPlanReady = false;
     var parserMessage = '';
     if (validation.valid) {
       try {
         parsedImage = SRecordImage.parse(bytes);
         preparedBlocks = parsedImage.dataBlocks(blockSize: 256).length;
-        parserMessage = ' Memory map parsed; ${preparedBlocks} generic 256-byte data blocks prepared (not target commands).';
+        if (profileMatches) {
+          RenesasProgramPlan.fromSRecord(bytes);
+          protocolPlanReady = true;
+        }
+        parserMessage = ' Memory map parsed; ${preparedBlocks} generic 256-byte data blocks prepared. ${protocolPlanReady ? 'Renesas 16 KB command/data frame plan prepared.' : 'Exact-profile 16 KB protocol plan unavailable.'}';
       } on FormatException catch (e) {
         parserMessage = ' Memory-map preparation failed: ${e.message}';
       }
@@ -268,6 +276,7 @@ class _DashboardPageState extends State<DashboardPage> {
         profileMatches: profileMatches,
         message: '${validation.message} ${parserMessage} ${profileMessage}',
         preparedBlocks: preparedBlocks,
+        protocolPlanReady: protocolPlanReady,
       );
     });
   }
@@ -385,6 +394,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   Text(firmware!.message),
                   Text('${firmware!.records} total records · ${firmware!.dataBytes} firmware bytes'),
                   Text('${firmware!.preparedBlocks} generic data blocks prepared for protocol integration'),
+                  Text('Renesas 16 KB frame plan: ${firmware!.protocolPlanReady ? "READY" : "NOT READY"} (no bytes sent to PCB)'),
                   Text('Address range: ${_formatAddress(firmware!.startAddress)} - ${_formatAddress(firmware!.endAddress)}'),
                   Text('S-record validation: ${firmware!.validSRecord ? "PASS" : "FAIL"}'),
                   Text('Exact profile match: ${firmware!.profileMatches ? "YES" : "NO"}'),
