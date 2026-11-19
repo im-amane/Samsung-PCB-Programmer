@@ -20,6 +20,16 @@ jobs:
         run: flutter create . --platforms=android --project-name samsung_pcb_programmer
       - name: Resolve dependencies
         run: flutter pub get
+      - name: Set Android compile SDK to 36
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for path in Path("android/app").glob("build.gradle*"):
+              text = path.read_text()
+              text = text.replace("compileSdkVersion flutter.compileSdkVersion", "compileSdkVersion 36")
+              text = text.replace("compileSdk = flutter.compileSdkVersion", "compileSdk = 36")
+              path.write_text(text)
+          PY
       - name: Patch legacy USB serial repository declaration
         run: |
           PLUGIN="$HOME/.pub-cache/hosted/pub.dev/usb_serial-0.5.2/android/build.gradle"
