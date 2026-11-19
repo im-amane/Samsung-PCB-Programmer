@@ -9,6 +9,7 @@ import 'package:flutter_libserialport/flutter_libserialport.dart' as libserial;
 import 'firmware_validator.dart';
 import 'srecord_image.dart';
 import 'renesas_program_plan.dart';
+import 'renesas_serial_transport.dart';
 
 void main() => runApp(const SamsungPcbProgrammerApp());
 
@@ -87,7 +88,7 @@ class _DashboardPageState extends State<DashboardPage> {
   int selectedIndex = 1;
   List<UsbDevice> devices = [];
   UsbPort? port;
-  libserial.SerialPort? nativePort;
+  RenesasSerialTransport? nativeTransport;
   String? connectedNativePath;
   List<String> nativePorts = [];
   UsbDevice? connectedDevice;
@@ -108,8 +109,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void dispose() {
     port?.close();
-    nativePort?.close();
-    nativePort?.dispose();
+    nativeTransport?.close();
     super.dispose();
   }
 
@@ -144,11 +144,10 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _connect(UsbDevice device) async {
     try {
       await port?.close();
-      final oldNative = nativePort;
-      nativePort = null;
+      final oldNative = nativeTransport;
+      nativeTransport = null;
       connectedNativePath = null;
       oldNative?.close();
-      oldNative?.dispose();
       final candidate = await device.create();
       if (candidate == null) {
         if (mounted) setState(() => connectionMessage = 'No serial driver is available for this USB device.');
@@ -179,8 +178,8 @@ class _DashboardPageState extends State<DashboardPage> {
     libserial.SerialPort? candidate;
     try {
       await port?.close();
-      await nativePort?.close();
-      nativePort?.dispose();
+      nativeTransport?.close();
+      nativeTransport = null;
       candidate = libserial.SerialPort(path);
       if (!candidate.openReadWrite()) {
         candidate.dispose();
@@ -195,7 +194,7 @@ class _DashboardPageState extends State<DashboardPage> {
       setState(() {
         port = null;
         connectedDevice = null;
-        nativePort = candidate;
+        nativeTransport = RenesasSerialTransport(candidate!);
         connectedNativePath = path;
         connectionMessage = 'Native libserialport opened $path. No baud rate, DTR/RTS, break pulse, or MCU data has been changed/sent.';
       });
@@ -207,17 +206,16 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _disconnect() async {
     final current = port;
-    final native = nativePort;
+    final native = nativeTransport;
     setState(() {
       port = null;
       connectedDevice = null;
-      nativePort = null;
+      nativeTransport = null;
       connectedNativePath = null;
       connectionMessage = 'Serial interface disconnected.';
     });
     await current?.close();
     native?.close();
-    native?.dispose();
   }
 
   Future<void> _importApk() async {
@@ -395,7 +393,7 @@ class _DashboardPageState extends State<DashboardPage> {
               icon: Icons.memory_rounded,
               title: 'PROGRAMMER STATUS',
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(port == null && nativePort == null ? 'Not connected' : 'USB / serial connected',
+                Text(port == null && nativeTransport == null ? 'Not connected' : 'USB / serial connected',
                     style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 Text(connectionMessage, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
@@ -430,7 +428,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             : TextButton(onPressed: () => _connectNative(path), child: const Text('Open')),
                       )),
                 ],
-                if (port != null || nativePort != null)
+                if (port != null || nativeTransport != null)
                   TextButton.icon(
                     onPressed: _disconnect,
                     icon: const Icon(Icons.link_off_rounded),
