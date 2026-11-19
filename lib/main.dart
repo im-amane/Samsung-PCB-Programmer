@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -89,6 +90,7 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   int selectedIndex = 1;
   List<UsbDevice> devices = [];
+  StreamSubscription<UsbEvent>? usbEventSubscription;
   UsbPort? port;
   RenesasSerialTransport? nativeTransport;
   RenesasUsbSerialTransport? usbTransport;
@@ -112,16 +114,37 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
+    usbEventSubscription = UsbSerial.usbEventStream?.listen(
+      _handleUsbEvent,
+      onError: (Object error) {
+        if (mounted) setState(() => connectionMessage = 'USB event listener failed: $error');
+      },
+    );
     _scanUsb();
     _loadSelectedFirmware();
   }
 
   @override
   void dispose() {
+    usbEventSubscription?.cancel();
     usbTransport?.close();
     port?.close();
     nativeTransport?.close();
     super.dispose();
+  }
+
+  void _handleUsbEvent(UsbEvent event) {
+    if (event.event == UsbEvent.ACTION_USB_ATTACHED) {
+      _scanUsb();
+      return;
+    }
+    if (event.event == UsbEvent.ACTION_USB_DETACHED &&
+        event.device?.deviceId == connectedDevice?.deviceId) {
+      _disconnect();
+      if (mounted) {
+        setState(() => connectionMessage = 'USB adapter unplugged. Connection closed.');
+      }
+    }
   }
 
   Future<void> _scanUsb() async {
