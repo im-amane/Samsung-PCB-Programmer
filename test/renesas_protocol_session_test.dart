@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:samsung_pcb_programmer/renesas_78k0r_protocol.dart';
 import 'package:samsung_pcb_programmer/renesas_protocol_session.dart';
 import 'package:samsung_pcb_programmer/renesas_program_plan.dart';
 
