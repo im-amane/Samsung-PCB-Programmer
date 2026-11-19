@@ -1,6 +1,6 @@
 # Bench test checklist for Samsung PCB Programmer
 
-This checklist is for the next controlled bench session. The current app is a firmware inspection and USB connection diagnostic tool, not a confirmed flasher.
+This checklist is for the next controlled bench session. The app includes firmware inspection, Android USB serial diagnostics, and a software implementation of the read-only Renesas READY/silicon-signature exchange. Neither the read-only exchange nor destructive programming has been commissioned on a physical Samsung PCB.
 
 ## Before connecting anything
 
@@ -22,7 +22,7 @@ This checklist is for the next controlled bench session. The current app is a fi
 6. Expected firmware payload: 16,384 bytes, address range 0x0000–0x3FFF.
 7. Use Scan USB with the programmer connected to the phone via a suitable OTG adapter.
 8. Confirm that the adapter is listed, connect, then disconnect.
-9. Confirm that no flash command is sent. The current app does not set an assumed baud rate or toggle boot pins.
+9. Confirm that no erase/program/verify command is sent. The current Android USB signature path uses the Renesas family-reference UART framing (9600 bps, 8N2 programmer-to-target and 8N1 target-to-programmer) after the operator has entered boot mode. The app does not drive VDD, RESET or FLMD0, and it does not assume an adapter-specific DTR/RTS polarity.
 
 ## Expected catalogue fingerprints
 
@@ -34,7 +34,7 @@ This checklist is for the next controlled bench session. The current app is a fi
 
 ## Conversion is not yet approved
 
-The app's labels associate 0459C/0459G with Double Door and 0459M with Single Door. This is not proof that 0459M is safe for a 0459C/0459G PCB. Do not attempt erase/write during this session. First establish exact PCB revision, populated hardware, connector pinout, logic voltage, sensor/relay mapping and compatibility using reliable service information.
+The app's labels associate 0459C/0459G with Double Door and 0459M with Single Door. This is not proof that 0459M is safe for a 0459C/0459G PCB. Do not attempt erase/write during this session. The app's destructive UI action is hard-locked pending commissioning. First establish exact PCB revision, populated hardware, connector pinout, logic voltage, TOOL0 direction control, sensor/relay mapping and compatibility using reliable service information.
 
 ## What to capture for the next engineering step
 
