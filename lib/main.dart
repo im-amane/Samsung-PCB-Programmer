@@ -199,9 +199,10 @@ class _DashboardPageState extends State<DashboardPage> {
         }
         return;
       }
-      final opened = await candidate.open();
+      final openedPort = candidate;
+      final opened = await openedPort.open();
       if (!opened) {
-        await candidate.close();
+        await openedPort.close();
         candidate = null;
         if (mounted) {
           setState(() => connectionMessage =
@@ -212,17 +213,17 @@ class _DashboardPageState extends State<DashboardPage> {
 
       // Opening a port must not silently change line state or send MCU bytes.
       if (!mounted) {
-        await candidate.close();
+        await openedPort.close();
         candidate = null;
         return;
       }
       final usbLink = RenesasUsbSerialTransport(
-        driver: AndroidUsbSerialPortDriver(candidate),
+        driver: AndroidUsbSerialPortDriver(openedPort),
         lineProfile: _usbLineProfile,
         baudRate: usbBaudRate,
       );
       setState(() {
-        port = candidate;
+        port = openedPort;
         usbTransport = usbLink;
         connectedDevice = device;
         connectionMessage =
