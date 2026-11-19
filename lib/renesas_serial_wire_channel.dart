@@ -5,8 +5,8 @@ import 'renesas_protocol_session.dart';
 import 'renesas_serial_transport.dart';
 
 /// Adapter-specific direction control for the physical single-wire TOOL0 bus.
-/// These callbacks must be implemented from the verified Samsung adapter
-/// schematic/pinout. No GPIO or DTR/RTS polarity is assumed here.
+/// Callbacks must come from a verified Samsung adapter schematic/pinout.
+/// No GPIO or DTR/RTS polarity is assumed.
 class RenesasSerialWireChannel implements RenesasWireChannel {
   RenesasSerialWireChannel({
     required this.transport,
@@ -41,17 +41,10 @@ class RenesasSerialWireChannel implements RenesasWireChannel {
 
   @override
   Future<Uint8List> readFrame(Duration timeout) async {
-    final timeoutValue = timeout.inMilliseconds;
-    if (timeoutValue <= 0) {
+    final milliseconds = timeout.inMilliseconds;
+    if (milliseconds <= 0) {
       throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
     }
-    return transport
-        .readResponseFrame(timeoutMs: timeoutValue)
-        .data
-        .letBytes();
+    return transport.readResponseBytes(timeoutMs: milliseconds);
   }
-}
-
-extension on Uint8List {
-  Uint8List letBytes() => this;
 }
