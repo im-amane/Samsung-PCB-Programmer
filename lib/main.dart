@@ -87,6 +87,7 @@ class _DashboardPageState extends State<DashboardPage> {
   UsbDevice? connectedDevice;
   FirmwareInfo? firmware;
   final Map<String, Uint8List> apkFirmware = {};
+  final Map<String, Uint8List> apkImages = {};
   bool scanning = false;
   bool importingApk = false;
   String connectionMessage = 'Connect a USB-C OTG adapter to detect the interface.';
@@ -180,15 +181,25 @@ class _DashboardPageState extends State<DashboardPage> {
     try {
       final archive = ZipDecoder().decodeBytes(bytes);
       final extracted = <String, Uint8List>{};
+      final extractedImages = <String, Uint8List>{};
+      const supportedImages = <String>{
+        'app_logo.jpg',
+        'samsung_da41_00814d.jpg',
+        'samsung_da41_00814d_h.jpg',
+        'samsung_da41_00863a.jpg',
+      };
       for (final entry in archive) {
         if (!entry.isFile) continue;
         final name = entry.name;
-        if (!name.contains('assets/flutter_assets/assets/firmwares/')) continue;
-        final baseName = name.split('/').last;
-        if (!boardProfiles.any((p) => p.firmware == baseName)) continue;
         final content = entry.content;
-        if (content is List<int>) {
+        if (content is! List<int>) continue;
+        final baseName = name.split('/').last;
+        if (name.contains('assets/flutter_assets/assets/firmwares/') &&
+            boardProfiles.any((p) => p.firmware == baseName)) {
           extracted[baseName] = Uint8List.fromList(content);
+        } else if (name.contains('assets/flutter_assets/assets/images/') &&
+            supportedImages.contains(baseName)) {
+          extractedImages[baseName] = Uint8List.fromList(content);
         }
       }
       if (extracted.isEmpty) {
@@ -199,8 +210,11 @@ class _DashboardPageState extends State<DashboardPage> {
         apkFirmware
           ..clear()
           ..addAll(extracted);
+        apkImages
+          ..clear()
+          ..addAll(extractedImages);
         importingApk = false;
-        apkMessage = '${extracted.length} firmware file(s) extracted from the APK in memory. Nothing was uploaded.';
+        apkMessage = '${extracted.length} firmware file(s) and ${extractedImages.length} original image asset(s) extracted in memory. Nothing was uploaded.';
       });
       _loadApkFirmware();
     } catch (e) {
@@ -293,6 +307,15 @@ class _DashboardPageState extends State<DashboardPage> {
     final selected = boardProfiles[selectedIndex];
     return Scaffold(
       appBar: AppBar(
+        leading: apkImages.containsKey('app_logo.jpg')
+            ? Padding(
+                padding: const EdgeInsets.all(7),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(9),
+                  child: Image.memory(apkImages['app_logo.jpg']!, fit: BoxFit.cover),
+                ),
+              )
+            : null,
         title: const Text('Samsung PCB Programmer'),
         actions: [
           IconButton(
@@ -341,6 +364,26 @@ class _DashboardPageState extends State<DashboardPage> {
               ]),
             ),
             const SizedBox(height: 18),
+            if (selected.board == 'DA41-00814D' && apkImages.containsKey('samsung_da41_00814d.jpg')) ...[
+              _sectionCard(
+                icon: Icons.developer_board_rounded,
+                title: 'ORIGINAL BOARD IMAGE',
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.memory(apkImages['samsung_da41_00814d.jpg']!, fit: BoxFit.contain, width: double.infinity),
+                  ),
+                  if (apkImages.containsKey('samsung_da41_00814d_h.jpg')) ...[
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.memory(apkImages['samsung_da41_00814d_h.jpg']!, fit: BoxFit.contain, width: double.infinity),
+                    ),
+                  ],
+                ]),
+              ),
+              const SizedBox(height: 18),
+            ],
             const Text('TARGET FIRMWARE PROFILE', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             const Text('This selects the firmware profile only. The physical PCB model is not detected automatically; check its sticker and revision before choosing.'),
