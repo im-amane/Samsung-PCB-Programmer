@@ -274,4 +274,8 @@ class RenesasUsbWireChannel implements RenesasWireChannel {
   @override
   Future<Uint8List> readFrame(Duration timeout) =>
       transport.readResponseBytes(readTimeout: timeout);
+
+  @override
+  Future<Uint8List> readRawBytes(int count, Duration timeout) =>
+      transport.readExact(count, readTimeout: timeout);
 }

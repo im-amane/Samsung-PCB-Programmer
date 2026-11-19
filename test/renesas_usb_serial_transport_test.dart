@@ -40,6 +40,11 @@ class FakeUsbDriver implements RenesasUsbPortDriver {
   @override
   Future<void> write(Uint8List bytes) async {
     written = Uint8List.fromList(bytes);
+    if (bytes.length == 5 && bytes[2] == 0x00) {
+      scheduleMicrotask(() {
+        controller.add(Uint8List.fromList([0x02, 0x01, 0x06, 0xf9, 0x03]));
+      });
+    }
     if (bytes.length == 5 && bytes[2] == 0xc0) {
       final signature = <int>[
         0x10, 0x7f, 0x04, 0xdc, 0xfd, 0xfd, 0xff, 0x3f, 0x00,
@@ -136,6 +141,8 @@ void main() {
         ),
       );
 
+      driver.controller.add(Uint8List.fromList([0x00]));
+      await session.synchronize();
       final signature = await session.readSiliconSignature();
 
       expect(signature.length, 27);

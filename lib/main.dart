@@ -306,6 +306,7 @@ class _DashboardPageState extends State<DashboardPage> {
           dataTimeout: Duration(seconds: 2),
         ),
       );
+      await session.synchronize();
       final signature = await session.readSiliconSignature();
       final deviceName = String.fromCharCodes(signature.sublist(9, 19)).trim();
       final hex = signature
@@ -777,7 +778,7 @@ class _DashboardPageState extends State<DashboardPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Target must already be in Renesas flash-programming mode. This sends only the silicon-signature command (0xC0), never erase or write. Confirm adapter wiring, voltage and DTR/RTS profile first.'),
+                  const Text('Connect the app before releasing RESET so it can receive the Renesas READY pulse. The diagnostic then sends the two 0x00 synchronization bytes, Reset command and silicon-signature command only. It never erases or writes flash.'),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: usbTransport == null || readingSignature

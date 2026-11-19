@@ -7,11 +7,13 @@ import 'package:samsung_pcb_programmer/renesas_program_plan.dart';
 
 class _FakeChannel implements RenesasWireChannel {
   final List<Uint8List> responses;
+  final List<Uint8List> rawResponses;
   final List<Uint8List> writes = [];
   int txCount = 0;
   int rxCount = 0;
 
-  _FakeChannel(this.responses);
+  _FakeChannel(this.responses, {List<Uint8List> rawResponses = const []})
+      : rawResponses = List<Uint8List>.from(rawResponses);
 
   @override
   Future<void> transmitMode() async { txCount++; }
@@ -21,6 +23,14 @@ class _FakeChannel implements RenesasWireChannel {
 
   @override
   Future<void> write(Uint8List bytes) async => writes.add(Uint8List.fromList(bytes));
+
+  @override
+  Future<Uint8List> readRawBytes(int count, Duration timeout) async {
+    if (rawResponses.isEmpty) throw StateError('No fake raw response queued.');
+    final data = rawResponses.removeAt(0);
+    if (data.length != count) throw StateError('Unexpected raw response length.');
+    return data;
+  }
 
   @override
   Future<Uint8List> readFrame(Duration timeout) async {
@@ -69,6 +79,50 @@ Uint8List _full16kS3Image() {
 
 void main() {
   group('RenesasProtocolSession', () {
+    test('synchronizes from READY pulse using two zero bytes and Reset command', () async {
+      final channel = _FakeChannel(
+        [_statusFrame([0x06])],
+        rawResponses: [Uint8List.fromList([0x00])],
+      );
+      final session = RenesasProtocolSession(
+        channel: channel,
+        timing: const RenesasSessionTiming(
+          interFrame: Duration.zero,
+          commandTimeout: Duration(seconds: 1),
+          dataTimeout: Duration(seconds: 1),
+        ),
+      );
+
+      await session.synchronize();
+
+      expect(channel.writes, [
+        [0x00, 0x00],
+        Renesas78k0rProtocol.resetFrame(),
+      ]);
+      expect(channel.rawResponses, isEmpty);
+      expect(channel.responses, isEmpty);
+      expect(channel.txCount, 2);
+      expect(channel.rxCount, 2);
+    });
+
+    test('rejects a missing or invalid READY pulse before sending bytes', () async {
+      final channel = _FakeChannel(
+        [],
+        rawResponses: [Uint8List.fromList([0x7f])],
+      );
+      final session = RenesasProtocolSession(
+        channel: channel,
+        timing: const RenesasSessionTiming(
+          interFrame: Duration.zero,
+          commandTimeout: Duration(seconds: 1),
+          dataTimeout: Duration(seconds: 1),
+        ),
+      );
+
+      await expectLater(session.synchronize(), throwsStateError);
+      expect(channel.writes, isEmpty);
+    });
+
     test('reads signature only after ACK and validates response checksum', () async {
       final signature = <int>[
         0x10, 0x7f, 0x04, 0xdc, 0xfd, 0xfd, 0xff, 0x3f, 0x00,

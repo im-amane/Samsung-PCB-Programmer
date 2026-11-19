@@ -14,6 +14,7 @@ abstract interface class RenesasWireChannel {
   Future<void> receiveMode();
   Future<void> write(Uint8List bytes);
   Future<Uint8List> readFrame(Duration timeout);
+  Future<Uint8List> readRawBytes(int count, Duration timeout);
 }
 
 /// Timing values are explicit because the Samsung adapter's timing profile
@@ -106,6 +107,29 @@ class RenesasProtocolSession {
       response,
       expectedCount: 2,
       operation: operation,
+    );
+  }
+
+  /// Synchronizes the TOOL0 UART after the target's READY pulse is present.
+  ///
+  /// Renesas U19486EJ1V0AN specifies a READY 00H pulse from target to
+  /// programmer, two 00H synchronization bytes from programmer to target,
+  /// then the Reset command/status exchange at 9600 bps.
+  Future<void> synchronize() async {
+    await channel.receiveMode();
+    final ready = await channel.readRawBytes(1, timing.commandTimeout);
+    if (ready.length != 1 || ready.single != 0x00) {
+      final value = ready.isEmpty
+          ? 'no byte'
+          : '0x${ready.first.toRadixString(16).padLeft(2, '0')}';
+      throw StateError('Expected Renesas READY pulse 0x00, received $value.');
+    }
+    await Future<void>.delayed(const Duration(microseconds: 111));
+    await channel.transmitMode();
+    await channel.write(Uint8List.fromList([0x00, 0x00]));
+    await _exchangeCommand(
+      Renesas78k0rProtocol.resetFrame(),
+      operation: 'reset synchronization',
     );
   }
 
