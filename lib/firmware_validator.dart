@@ -22,8 +22,8 @@ class FirmwareValidator {
   /// firmware data compare identically without changing the raw-file digest.
   static String canonicalSRecordSha256Hex(Uint8List bytes) {
     final source = utf8.decode(bytes, allowMalformed: false);
-    var normalized = source.replaceAll('\\r\\n', '\\n').replaceAll('\\r', '\\n');
-    if (!normalized.endsWith('\\n')) normalized = '$normalized\\n';
+    var normalized = source.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    if (!normalized.endsWith('\n')) normalized = '$normalized\n';
     return sha256.convert(utf8.encode(normalized)).toString();
   }
 
