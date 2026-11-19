@@ -8,7 +8,7 @@ import 'package:samsung_pcb_programmer/renesas_protocol_session.dart';
 
 class FakeUsbDriver implements RenesasUsbPortDriver {
   final StreamController<Uint8List> controller =
-      StreamController<Uint8List>();
+      StreamController<Uint8List>.broadcast();
   final List<String> calls = <String>[];
   int configuredStopBits = 0;
   Uint8List? written;
