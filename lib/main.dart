@@ -110,7 +110,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _connect(UsbDevice device) async {
     await port?.close();
-    final candidate = await UsbSerial.createFromDevice(device);
+    final candidate = await device.create();
     if (candidate == null) {
       setState(() => connectionMessage = 'No serial driver is available for this USB device.');
       return;
