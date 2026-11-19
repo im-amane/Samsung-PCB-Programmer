@@ -37,7 +37,7 @@ Uint8List _statusFrame(List<int> statuses) {
 
 String _s3Record(int address, List<int> data) {
   final bytes = <int>[
-    4 + data.length + 1,
+    5 + data.length,
     (address >> 24) & 0xff,
     (address >> 16) & 0xff,
     (address >> 8) & 0xff,
@@ -45,7 +45,11 @@ String _s3Record(int address, List<int> data) {
     ...data,
   ];
   final sum = bytes.fold<int>(0, (a, b) => a + b);
-  return 'S3${[...bytes, (~sum) & 0xff].map((b) => b.toRadixString(16).padLeft(2, '0')).join().toUpperCase()}';
+  final encoded = [...bytes, (~sum) & 0xff]
+      .map((b) => b.toRadixString(16).padLeft(2, '0'))
+      .join()
+      .toUpperCase();
+  return 'S3' + encoded;
 }
 
 Uint8List _full16kS3Image() {
@@ -54,7 +58,7 @@ Uint8List _full16kS3Image() {
     lines.add(_s3Record(address, List<int>.generate(64, (i) => (address + i) & 0xff)));
   }
   lines.add('S70500000000FA');
-  return Uint8List.fromList(utf8.encode('${lines.join('\\n')}\\n'));
+  return Uint8List.fromList(utf8.encode(lines.join('\n') + '\n'));
 }
 
 void main() {
