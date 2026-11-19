@@ -866,14 +866,14 @@ class _DashboardPageState extends State<DashboardPage> {
                                   child: Text('$rate baud'),
                                 ))
                             .toList(),
-                        onChanged: readingSignature ? null : (rate) {
+                        onChanged: (readingSignature || programming) ? null : (rate) {
                           if (rate != null) _setUsbBaudRate(rate);
                         },
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text('USB serial BREAK control is available when supported by the adapter. RESET/FLMD0 sequencing and board-specific boot entry are still not implemented, so programming remains locked.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  Text('USB serial BREAK control is available when supported by the adapter. The app does not drive VDD, RESET or FLMD0; boot entry is manual, and flashing is gated by exact firmware/target preflight plus explicit confirmation.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ],
               ),
             ),
