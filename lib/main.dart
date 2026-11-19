@@ -219,7 +219,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _importFirmware() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['mot', 'srec', 's19', 's28', 's37', 'bin', 'hex'],
+      allowedExtensions: ['mot', 'srec', 's19', 's28', 's37', 'bin'],
       withData: true,
     );
     if (result == null || result.files.isEmpty) return;
@@ -316,7 +316,9 @@ class _DashboardPageState extends State<DashboardPage> {
               ]),
             ),
             const SizedBox(height: 18),
-            const Text('PCB MODEL', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('TARGET FIRMWARE PROFILE', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            const Text('This selects the firmware profile only. The physical PCB model is not detected automatically; check its sticker and revision before choosing.'),
             const SizedBox(height: 8),
             ...List.generate(boardProfiles.length, (i) {
               final p = boardProfiles[i];
@@ -356,7 +358,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 OutlinedButton.icon(
                   onPressed: _importFirmware,
                   icon: const Icon(Icons.upload_file_rounded),
-                  label: const Text('Import firmware file separately'),
+                  label: const Text('Import S-record firmware file separately'),
                 ),
                 if (firmware != null) ...[
                   const Divider(height: 24),
