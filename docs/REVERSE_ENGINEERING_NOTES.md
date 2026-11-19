@@ -8,7 +8,7 @@ These notes record observations from static inspection of the user-supplied Sams
 - `DA41-00814D_0459G.mot`
 - `DA41-00814D_0459M.bin`
 
-The two Motorola S-record (.mot) assets were parsed and their record checksums passed the local validation used during inspection. The .bin asset was identified as a binary firmware asset; a valid S-record checksum does not apply to it.
+All three assets contain Motorola S-record text, including the .bin-named 0459M file. The .bin extension is misleading: it contains an S0 header, S3 data records and an S7 termination record. All records passed local byte-count and checksum validation.
 
 The firmware binaries are not copied into this public repository. They remain in the user-supplied APK; import the matching file into the app from a legally obtained source.
 
@@ -46,3 +46,8 @@ The independent Android app includes USB serial discovery/connection, firmware i
 6. Test read-only identification first, then controlled programming on a spare, isolated board with a recovery path.
 
 Do not connect to a mains-powered refrigerator board. Inverter capacitors can retain hazardous voltage after unplugging. Hardware work should be done only by a qualified technician after safe discharge is confirmed.
+
+
+## Additional Renesas research
+
+See [RENESAS_PROTOCOL_RESEARCH.md](RENESAS_PROTOCOL_RESEARCH.md) for current public documentation findings. Renesas confirms uPD78F1201 is a 78K0R/IB3 device and is listed for Renesas Flash Programmer V2. The public programmer application note currently inspected is for sibling 78K0R variants, not an exact uPD78F1201-specific command profile. It provides useful family context but is not sufficient to safely enable Samsung-board erase/write commands.
