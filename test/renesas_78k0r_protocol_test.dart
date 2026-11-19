@@ -3,6 +3,13 @@ import 'package:samsung_pcb_programmer/renesas_78k0r_protocol.dart';
 
 void main() {
   group('Renesas78k0rProtocol frame codec', () {
+    test('records documented initial UART framing', () {
+      expect(Renesas78k0rProtocol.initialBaudRate, 9600);
+      expect(Renesas78k0rProtocol.dataBits, 8);
+      expect(Renesas78k0rProtocol.programmerToTargetStopBits, 2);
+      expect(Renesas78k0rProtocol.targetToProgrammerStopBits, 1);
+    });
+
     test('builds the documented chip erase frame exactly', () {
       expect(
         Renesas78k0rProtocol.chipEraseFrame(),
