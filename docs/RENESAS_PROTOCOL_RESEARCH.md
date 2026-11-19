@@ -42,3 +42,13 @@ The app now parses Motorola S-record data into an address-indexed memory map, re
 7. Independently establish sensor, relay and refrigerator-model compatibility before treating 0459M as a safe conversion image.
 
 Do not connect an unknown adapter to a refrigerator PCB or attempt erase/write based on generic family-level information. Refrigerator inverter boards can retain hazardous voltage after mains disconnection; work must be performed by a qualified technician after safe discharge is confirmed.
+
+
+## Additional protocol details checked against U19486EJ1V0AN00
+
+- The Silicon Signature command is not a single response: the target first returns a one-byte ACK status frame, then a separate signature data frame. The data payload contains 27 bytes for the documented fields (vendor, extension/function/device codes, user-flash last address, 10-byte device name, security flag, boot block, flash-shield window and two reserved bytes). The independent codec now validates and parses that complete data frame rather than accepting an arbitrary short payload.
+- A Programming command is followed by a status frame for each transmitted data frame. After the final write data frame, the MCU performs an automatic internal verify and returns one additional one-byte status frame. The protocol session now consumes and checks this final status before proceeding to the explicit Verify command.
+- The Verify command itself is followed by user-data frames sent from the programmer to the MCU; each data frame receives a two-byte ST1/ST2 status response. Verify result handling must be based on the final response semantics in the target's matching device documentation, not merely on receipt of ACK for each earlier frame.
+- The exact U19486 sections are 3.5.1-3.5.4 (programming and final internal-verify status), 3.6.1-3.6.3 (verify data/status), and 3.8.2-3.8.3 (silicon-signature status and payload). Reference: https://www.renesas.com/en/document/apn/78k0rkx3-l-78k0rix3-78k0rkx3-c-flash-memory-programmingfor-programmer
+
+These corrections improve the protocol model and tests only. They do not validate the Samsung adapter wiring or authorize the UI to send flash commands.
