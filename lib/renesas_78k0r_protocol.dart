@@ -11,6 +11,12 @@ class Renesas78k0rProtocol {
   static const int etx = 0x03;
   static const int etb = 0x17;
 
+  // U19486 UART entry settings before any Baud Rate Set command.
+  static const int initialBaudRate = 9600;
+  static const int dataBits = 8;
+  static const int programmerToTargetStopBits = 2;
+  static const int targetToProgrammerStopBits = 1;
+
   static const int reset = 0x00;
   static const int baudRateSet = 0x9a;
   static const int chipErase = 0x20;
