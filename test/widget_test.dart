@@ -28,6 +28,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Samsung Swap'), findsOneWidget);
+    final scrollable = dashboardScrollable();
     final profileHeading = find.text('TARGET FIRMWARE PROFILE');
     await reveal(tester, profileHeading, scrollable);
     expect(profileHeading, findsOneWidget);
