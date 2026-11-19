@@ -172,7 +172,7 @@ class _DashboardPageState extends State<DashboardPage> {
       final extracted = <String, Uint8List>{};
       for (final entry in archive) {
         if (!entry.isFile) continue;
-        final name = entry.name.replaceAll('\\\\', '/');
+        final name = entry.name;
         if (!name.contains('assets/flutter_assets/assets/firmwares/')) continue;
         final baseName = name.split('/').last;
         if (!boardProfiles.any((p) => p.firmware == baseName)) continue;
