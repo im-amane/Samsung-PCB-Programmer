@@ -6,8 +6,8 @@ void main() {
     await tester.pumpWidget(const SamsungPcbProgrammerApp());
     await tester.pump();
     expect(find.text('Samsung Swap'), findsOneWidget);
-    expect(find.textContaining('00755A'), findsOneWidget);
-    expect(find.textContaining('00838A'), findsOneWidget);
+    expect(find.text('00755A · RT36 Inverter'), findsOneWidget);
+    expect(find.text('00838A · French Door'), findsOneWidget);
     expect(find.text('TARGET FIRMWARE PROFILE'), findsOneWidget);
   });
 }
