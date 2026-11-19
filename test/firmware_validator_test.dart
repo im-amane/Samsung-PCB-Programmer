@@ -43,7 +43,7 @@ void main() {
 
     test('rejects bytes after termination', () {
       final result = FirmwareValidator.validateSRecords(
-        Uint8List.fromList(utf8.encode('S9030000FC\nS10500000102F7\n')),
+        Uint8List.fromList(utf8.encode('S10500000102F7\nS9030000FC\nS10500000102F7\n')),
       );
       expect(result.valid, isFalse);
       expect(result.message, contains('after termination'));
