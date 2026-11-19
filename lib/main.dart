@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:usb_serial/usb_serial.dart';
 
 import 'firmware_validator.dart';
+import 'srecord_image.dart';
 
 void main() => runApp(const SamsungPcbProgrammerApp());
 
@@ -55,6 +56,7 @@ class FirmwareInfo {
     required this.endAddress,
     required this.profileMatches,
     required this.message,
+    required this.preparedBlocks,
   });
   final String name;
   final int size;
@@ -66,6 +68,7 @@ class FirmwareInfo {
   final int? endAddress;
   final bool profileMatches;
   final String message;
+  final int preparedBlocks;
 }
 
 class DashboardPage extends StatefulWidget {
@@ -240,18 +243,31 @@ class _DashboardPageState extends State<DashboardPage> {
     final profileMessage = profileMatches
         ? 'Exact filename and SHA-256 match for selected APK profile.'
         : 'PROFILE MISMATCH: expected ${expected.firmware} with SHA-256 ${expected.sha256}.';
+    SRecordImage? parsedImage;
+    var preparedBlocks = 0;
+    var parserMessage = '';
+    if (validation.valid) {
+      try {
+        parsedImage = SRecordImage.parse(bytes);
+        preparedBlocks = parsedImage.dataBlocks(blockSize: 256).length;
+        parserMessage = ' Memory map parsed; ${preparedBlocks} generic 256-byte data blocks prepared (not target commands).';
+      } on FormatException catch (e) {
+        parserMessage = ' Memory-map preparation failed: ${e.message}';
+      }
+    }
     setState(() {
       firmware = FirmwareInfo(
         name: name,
         size: bytes.length,
         sha256: digest,
-        validSRecord: validation.valid,
+        validSRecord: validation.valid && parsedImage != null,
         records: validation.totalRecords,
         dataBytes: validation.dataBytes,
         startAddress: validation.startAddress,
         endAddress: validation.endAddress,
         profileMatches: profileMatches,
-        message: '${validation.message} ${profileMessage}',
+        message: '${validation.message} ${parserMessage} ${profileMessage}',
+        preparedBlocks: preparedBlocks,
       );
     });
   }
@@ -368,6 +384,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: 6),
                   Text(firmware!.message),
                   Text('${firmware!.records} total records · ${firmware!.dataBytes} firmware bytes'),
+                  Text('${firmware!.preparedBlocks} generic data blocks prepared for protocol integration'),
                   Text('Address range: ${_formatAddress(firmware!.startAddress)} - ${_formatAddress(firmware!.endAddress)}'),
                   Text('S-record validation: ${firmware!.validSRecord ? "PASS" : "FAIL"}'),
                   Text('Exact profile match: ${firmware!.profileMatches ? "YES" : "NO"}'),
