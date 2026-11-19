@@ -24,7 +24,7 @@ abstract interface class RenesasUsbPortDriver {
   Future<void> setBreak(bool asserted);
 }
 
-/// Production adapter for the Android usb_serial plugin.
+/// Production adapter for the Android usb_serial_next plugin.
 class AndroidUsbSerialPortDriver implements RenesasUsbPortDriver {
   AndroidUsbSerialPortDriver(this.port);
 
@@ -81,8 +81,9 @@ class UsbTool0LineProfile {
 /// Android USB serial transport for the Renesas 78K0R UART protocol.
 ///
 /// usb_serial_next exposes DTR, RTS, BREAK and input-buffer purge. BREAK
-/// support still depends on the selected USB-UART chip and its driver. Target reset/FLMD0 sequencing must be provided by a separately
-/// verified adapter/controller before any programming operation is enabled.
+/// support still depends on the selected USB-UART chip and its driver. Target
+/// reset/FLMD0 sequencing must be provided by a separately verified
+/// adapter/controller before any programming operation is enabled.
 class RenesasUsbSerialTransport {
   RenesasUsbSerialTransport({
     required this.driver,
@@ -153,7 +154,7 @@ class RenesasUsbSerialTransport {
       baudRate: baudRate,
       dataBits: Renesas78k0rProtocol.dataBits,
       stopBits: Renesas78k0rProtocol.targetToProgrammerStopBits,
-      parity: UsbPort.PARITY_NONE,
+      parity: 0,
     );
     await driver.setDtr(lineProfile.receiveDtr);
     await driver.setRts(lineProfile.receiveRts);

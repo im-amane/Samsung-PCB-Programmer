@@ -218,7 +218,7 @@ class _DashboardPageState extends State<DashboardPage> {
         usbTransport = usbLink;
         connectedDevice = device;
         connectionMessage =
-            'USB serial port opened without sending data or changing serial parameters.';
+            'USB serial port opened at 9600 8N1. DTR/RTS left unchanged; no MCU command sent.';
       });
       candidate = null; // ownership transferred to DashboardPage
     } catch (e) {
@@ -646,7 +646,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text('USB serial Dart API hardware BREAK: not exposed. RESET/FLMD0 and boot-entry control are still not implemented, so programming remains locked.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  Text('USB serial BREAK control is available when supported by the adapter. RESET/FLMD0 sequencing and board-specific boot entry are still not implemented, so programming remains locked.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ],
               ),
             ),
