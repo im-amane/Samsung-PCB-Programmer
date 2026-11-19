@@ -95,6 +95,7 @@ class _DashboardPageState extends State<DashboardPage> {
   FirmwareInfo? firmware;
   final Map<String, Uint8List> apkFirmware = {};
   final Map<String, Uint8List> apkImages = {};
+  final Map<String, Uint8List> apkAssets = {};
   bool scanning = false;
   bool importingApk = false;
   String connectionMessage = 'Connect a USB-C OTG adapter to detect the interface.';
@@ -235,6 +236,8 @@ class _DashboardPageState extends State<DashboardPage> {
       final archive = ZipDecoder().decodeBytes(bytes);
       final extracted = <String, Uint8List>{};
       final extractedImages = <String, Uint8List>{};
+      final allAssets = <String, Uint8List>{};
+      const flutterAssetsPrefix = 'assets/flutter_assets/';
       const supportedImages = <String>{
         'app_logo.jpg',
         'samsung_da41_00814d.jpg',
@@ -242,17 +245,20 @@ class _DashboardPageState extends State<DashboardPage> {
         'samsung_da41_00863a.jpg',
       };
       for (final entry in archive) {
-        if (!entry.isFile) continue;
+        if (!entry.isFile || !entry.name.startsWith(flutterAssetsPrefix)) continue;
         final name = entry.name;
         final content = entry.content;
         if (content is! List<int>) continue;
+        final relativeName = name.substring(flutterAssetsPrefix.length);
+        final bytes = Uint8List.fromList(content);
+        allAssets[relativeName] = bytes;
         final baseName = name.split('/').last;
         if (name.contains('assets/flutter_assets/assets/firmwares/') &&
             boardProfiles.any((p) => p.firmware == baseName)) {
-          extracted[baseName] = Uint8List.fromList(content);
+          extracted[baseName] = bytes;
         } else if (name.contains('assets/flutter_assets/assets/images/') &&
             supportedImages.contains(baseName)) {
-          extractedImages[baseName] = Uint8List.fromList(content);
+          extractedImages[baseName] = bytes;
         }
       }
       if (extracted.isEmpty) {
@@ -266,8 +272,12 @@ class _DashboardPageState extends State<DashboardPage> {
         apkImages
           ..clear()
           ..addAll(extractedImages);
+        apkAssets
+          ..clear()
+          ..addAll(allAssets);
         importingApk = false;
-        apkMessage = '${extracted.length} firmware file(s) and ${extractedImages.length} original image asset(s) extracted in memory. Nothing was uploaded.';
+        final totalBytes = allAssets.values.fold<int>(0, (sum, bytes) => sum + bytes.length);
+        apkMessage = '${allAssets.length} original Flutter assets (${(totalBytes / 1024).toStringAsFixed(1)} KB), ${extracted.length} firmware file(s), and ${extractedImages.length} board/application image(s) extracted in memory. Nothing was uploaded.';
       });
       _loadApkFirmware();
     } catch (e) {
@@ -490,6 +500,17 @@ class _DashboardPageState extends State<DashboardPage> {
                   label: Text(importingApk ? 'Reading APK…' : 'Import original Samsung Swap APK'),
                 ),
                 Text(apkMessage, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                if (apkAssets.isNotEmpty)
+                  ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: Text('Original Flutter asset files (${apkAssets.length})'),
+                    children: apkAssets.entries.map((asset) => ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(asset.key, style: const TextStyle(fontSize: 12)),
+                      trailing: Text('${(asset.value.length / 1024).toStringAsFixed(1)} KB'),
+                    )).toList(),
+                  ),
                 if (selected.firmware.isNotEmpty && apkFirmware.containsKey(selected.firmware))
                   TextButton.icon(
                     onPressed: _loadApkFirmware,
