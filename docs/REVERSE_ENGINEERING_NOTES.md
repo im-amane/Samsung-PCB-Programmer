@@ -32,9 +32,19 @@ These names suggest that the original app contains a target-specific programming
 
 The symbols suggest a possible sequence involving USB serial setup, boot-mode entry using control lines, target synchronization/identification, erase, chunked writes, verification, and reboot. This is only a hypothesis until the exact implementation is decoded and independently tested against the correct board and adapter.
 
-## Current app status
+## Current app status (2026-11-20)
 
-The independent Android app includes USB serial discovery/connection, firmware import, SHA-256 calculation, and Motorola S-record checksum validation. It does not yet send bootloader, erase, write, verify, or reboot commands.
+The independent Flutter/Android app currently includes:
+
+- USB serial discovery, connection, detach handling, and byte-stream buffering.
+- Firmware import, S-record parsing, checksum validation, raw/canonical SHA-256 fingerprints, and bundled profile matching.
+- A Renesas 78K0R command/frame codec, a half-duplex wire-channel abstraction, and a protocol session with READY-pulse synchronization and read-only silicon-signature transaction.
+- A 16 KB programming-plan builder and a guarded erase/write/verify transaction engine, covered by fake-channel unit tests.
+- A hard application-level commissioning gate that prevents destructive erase/write from being started in the UI.
+
+The distinction matters: the protocol/session code is software-tested against simulated responses, not validated on a physical Samsung PCB. The app does **not** control target VDD, RESET, or FLMD0, and the correct six-wire adapter pinout, voltage levels, TOOL0 direction switching, and boot-entry sequence are not yet established. Therefore erase/write remains disabled even though the transaction engine and its tests exist. A successful Android build is not evidence that a real board can be programmed.
+
+The current read-only identification path is also not considered hardware-commissioned until it is tested with the exact board revision and adapter.
 
 ## Validation required before enabling flashing
 
