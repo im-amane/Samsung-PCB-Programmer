@@ -42,13 +42,14 @@ void main() {
     expect(frenchDoor, findsOneWidget);
   });
 
-  testWidgets('flash controls stay disabled until target signature is verified', (tester) async {
+  testWidgets('flash controls stay disabled until hardware commissioning is complete', (tester) async {
     await tester.pumpWidget(const SamsungPcbProgrammerApp());
     await tester.pumpAndSettle();
 
     final flashButton = find.widgetWithText(FilledButton, 'Erase + Write + Verify');
     await reveal(tester, flashButton, dashboardScrollable());
     expect(tester.widget<FilledButton>(flashButton).onPressed, isNull);
+    expect(find.textContaining('HARDWARE COMMISSIONING REQUIRED'), findsOneWidget);
   });
 
   testWidgets('default board loads its bundled verified firmware', (tester) async {
