@@ -616,7 +616,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                   child: Text('$rate baud'),
                                 ))
                             .toList(),
-                        onChanged: (rate) {
+                        onChanged: readingSignature ? null : (rate) {
                           if (rate != null) _setUsbBaudRate(rate);
                         },
                       ),
@@ -817,7 +817,7 @@ class _DashboardPageState extends State<DashboardPage> {
         dense: true,
         title: Text(title),
         value: value,
-        onChanged: onChanged,
+        onChanged: readingSignature ? null : onChanged,
       );
 
   Widget _sectionCard({required IconData icon, required String title, required Widget child}) =>
