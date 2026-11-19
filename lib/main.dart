@@ -1001,7 +1001,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   Text('MCU target: Renesas 78K0R / uPD78F1201 with a 16 KB flash range.'),
                   Text('Android USB serial transport supports DTR/RTS direction control and hardware BREAK where the adapter driver supports it.'),
                   SizedBox(height: 8),
-                  Text('The app now receives the READY pulse, sends the two 0x00 synchronization bytes, performs the Reset handshake, reads the silicon signature, and can run the tested erase/program/verify session after strict preflight and explicit confirmation.'),
+                  Text('The app can receive the READY pulse, send the two 0x00 synchronization bytes, perform the Reset handshake, and request the silicon signature. The erase/program/verify transaction engine is covered by simulated-channel tests, but destructive operations remain hard-locked until the exact adapter and PCB pass hardware commissioning.'),
                   SizedBox(height: 8),
                   Text('VDD, RESET and FLMD0 are not driven by the app. Board-specific wiring, logic voltage and boot-entry control must be verified before any destructive operation.'),
                 ],
