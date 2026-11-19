@@ -170,6 +170,30 @@ class Renesas78k0rProtocol {
     );
   }
 
+  /// Decodes the complete 78K0R/Ix3 silicon-signature payload described by
+  /// Renesas application note U19486EJ1V0AN. The frame includes STX, LEN,
+  /// the 27-byte signature, checksum and ETX.
+  static RenesasSiliconSignature decodeSiliconSignatureFrame(List<int> frame) {
+    final response = decodeResponseFrame(frame);
+    if (!response.isFinal || response.data.length != 27) {
+      throw FormatException('Invalid 78K0R silicon signature length: expected 27 bytes, received ${response.data.length}.');
+    }
+    final data = response.data;
+    return RenesasSiliconSignature(
+      vendor: data[0],
+      macroExtension: data[1],
+      macroFunction: data[2],
+      deviceExtension: Uint8List.fromList(data.sublist(3, 6)),
+      flashLastAddress: (data[8] << 16) | (data[7] << 8) | data[6],
+      deviceName: String.fromCharCodes(data.sublist(9, 19)).trim(),
+      securityFlags: data[19],
+      bootBlock: data[20],
+      flashShieldWindow: Uint8List.fromList(data.sublist(21, 25)),
+      reserved: Uint8List.fromList(data.sublist(25, 27)),
+      raw: Uint8List.fromList(data),
+    );
+  }
+
   static void requireAck(RenesasResponseFrame response, {String operation = 'command'}) {
     requireStatuses(response, expectedCount: 1, operation: operation);
   }
@@ -194,6 +218,35 @@ class Renesas78k0rProtocol {
       }
     }
   }
+}
+
+/// Parsed Renesas 78K0R silicon signature (U19486EJ1V0AN, section 3.8).
+class RenesasSiliconSignature {
+  const RenesasSiliconSignature({
+    required this.vendor,
+    required this.macroExtension,
+    required this.macroFunction,
+    required this.deviceExtension,
+    required this.flashLastAddress,
+    required this.deviceName,
+    required this.securityFlags,
+    required this.bootBlock,
+    required this.flashShieldWindow,
+    required this.reserved,
+    required this.raw,
+  });
+
+  final int vendor;
+  final int macroExtension;
+  final int macroFunction;
+  final Uint8List deviceExtension;
+  final int flashLastAddress;
+  final String deviceName;
+  final int securityFlags;
+  final int bootBlock;
+  final Uint8List flashShieldWindow;
+  final Uint8List reserved;
+  final Uint8List raw;
 }
 
 class RenesasResponseFrame {
