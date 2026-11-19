@@ -83,3 +83,18 @@ The Android app can import the original APK selected by the user, locate the thr
 ## Renesas protocol reference
 
 Renesas application note U19486EJ1V0AN explicitly includes uPD78F1201 under 78K0R/IB3 and documents command framing, data framing, status codes and timing. See [RENESAS_PROTOCOL_RESEARCH.md](RENESAS_PROTOCOL_RESEARCH.md) for the sourced summary and the remaining hardware integration gates.
+
+
+## Additional UI strings recovered from the Flutter AOT snapshot
+
+A second string pass recovered these original product labels and screen/workflow captions:
+
+- App/product labels: `Samsung Swap`, `SAMSUNG SWAP EDITION`, `DA41 Refrigerator PCB Firmware Writer`, `Dedicated Inverter Refrigerator PCB Flasher`.
+- Board catalogue labels: `DA41-00755A (RT36 Inverter)`, `DA41-00814A (0459C Double Door)`, `DA41-00814D (0459G Double Door)`, `DA41-00814D (0459M Single Door)`, and `DA41-00838A (French Door)`.
+- Other category labels: `Samsung Inverter Double Door`, `Samsung Inverter Double Door Series A`, `Samsung Inverter Single Door`, `Samsung RT36 Inverter PCB`, and `Samsung Side-by-Side Inverter PCB`.
+- Main actions/states: `Select Samsung DA41 Board Model`, `Connecting to Target Board (DA41 Link)...`, `WRITE TO TARGET BOARD`, `ERASE CHIP`, `WRITE FIRMWARE (FLASH)`, `REBOOT / RUN`, `HARDWARE FLASHING ENGINE`, `DA41 FLASH ENGINE`, `YOUR DEVICE CODE:`, and `ACTIVATE_DEVICE:`.
+- Additional runtime messages include direct-mode bootloader attempt, USB permission denied, board 5V/OTG cable error, flash erase, writing, reboot-to-RUN, and failed erase/write states.
+
+These are strings recovered from the compiled snapshot. They do not by themselves recover widget layout, button callbacks, or the exact order/parameters of the original programming transactions. The independent app's selector now also shows the RT36 and French Door labels, but correctly marks them as having no firmware asset in this supplied APK. The three bundled DA41 images remain the only firmware-backed profiles.
+
+The APK import flow in the independent app now also extracts the four original image assets into memory. It displays the original app logo and the DA41-00814D board images after the user imports the APK; these image files are not permanently copied to the public repository.
