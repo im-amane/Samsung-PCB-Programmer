@@ -9,7 +9,8 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 - No third-party account, activation, or license-verification flow in this independent app
 - Board selector including five board labels recovered from the original AOT snapshot; only three profiles have firmware assets in the supplied APK
 - Android USB-host serial discovery/permission and native `flutter_libserialport` serial endpoint discovery/open/close
-- Import the original Samsung Swap APK locally and extract its three DA41 firmware assets plus four original image assets into app memory
+- Three recovered DA41 firmware assets are bundled in the app and load automatically when their board profile is selected
+- Import the original Samsung Swap APK locally to extract its three DA41 firmware assets plus four original image assets into app memory
 - Firmware file import, Motorola S-record structure/checksum/termination validation, address-indexed memory-map parsing, overlap/gap checks, and generic data-block preparation
 - Renesas 78K0R command/data frame codec with checksums, response validation, ACK/NACK handling, erase/program/verify/signature frame builders, and 16 KB frame-plan preparation
 - Testable protocol transaction engine for silicon-signature read and erase/program/verify sequencing
@@ -36,7 +37,7 @@ The `--all` option writes into `assets/original_apk/` and keeps the original tre
 
 ## Current implementation boundary
 
-The app currently performs USB/native serial discovery and open/close, imports firmware, validates S-records and profile fingerprints, and prepares a protocol plan. The Renesas transaction engine is fake-channel tested, but it is **not connected to the dashboard's physical USB session**. No erase, write, verify, boot-mode pulse or reboot command is sent to a PCB.
+The app currently performs USB/native serial discovery and open/close, automatically loads bundled firmware by selected profile, imports firmware and original APK assets, validates S-records and profile fingerprints, and prepares a protocol plan. The Renesas transaction engine is fake-channel tested, but it is **not connected to the dashboard's physical USB session**. No erase, write, verify, boot-mode pulse or reboot command is sent to a PCB.
 
 The physical adapter's pinout, logic voltage, TOOL0 direction-control polarity, reset/FLMD0 sequence, serial timing and target compatibility remain unverified. Erase/write must stay disabled until those facts are confirmed from the exact adapter/PCB documentation and tested on safe bench hardware. Never guess pin wiring or firmware compatibility.
 
