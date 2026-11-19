@@ -131,7 +131,7 @@ class RenesasSerialTransport {
   ///
   /// The endpoint/adapter must already be in receive direction. This method
   /// does not perform single-wire TOOL0 direction switching or target timing.
-  RenesasResponseFrame readResponseFrame({int timeoutMs = 1000}) {
+  Uint8List readResponseBytes({int timeoutMs = 1000}) {
     final header = readExact(2, timeoutMs: timeoutMs);
     if (header[0] != Renesas78k0rProtocol.stx) {
       throw FormatException(
@@ -141,11 +141,15 @@ class RenesasSerialTransport {
     final declaredLength = header[1];
     final payloadLength = declaredLength == 0 ? 256 : declaredLength;
     final tail = readExact(payloadLength + 2, timeoutMs: timeoutMs);
-    return Renesas78k0rProtocol.decodeResponseFrame([
-      ...header,
-      ...tail,
-    ]);
+    final frame = Uint8List.fromList([...header, ...tail]);
+    Renesas78k0rProtocol.decodeResponseFrame(frame);
+    return frame;
   }
+
+  RenesasResponseFrame readResponseFrame({int timeoutMs = 1000}) =>
+      Renesas78k0rProtocol.decodeResponseFrame(
+        readResponseBytes(timeoutMs: timeoutMs),
+      );
 
   void close() {
     if (port.isOpen) port.close();
