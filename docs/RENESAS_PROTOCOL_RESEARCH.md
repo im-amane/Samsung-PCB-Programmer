@@ -23,7 +23,7 @@ The original APK's static strings such as 0xC0, 0x20, and 0x06 are not enough to
 
 ## Engineering work added to the independent app
 
-The app now parses Motorola S-record data into an address-indexed memory map, rejects overlapping records and malformed/count/termination errors, detects address gaps when a continuous range is requested, and prepares generic data blocks for future protocol integration. These blocks are data preparation only, not proven target write packets.
+The app now parses Motorola S-record data into an address-indexed memory map, rejects overlapping records and malformed/count/termination errors, detects address gaps, and prepares generic data blocks. A separate Renesas 78K0R frame codec now builds command/data frames and validates response checksums/status values. It has unit tests for the documented chip-erase frame, reset/signature commands, address-range command, 256-byte data frame and ACK/NACK responses. This codec is not yet connected to the physical USB adapter and sends no commands.
 
 ## Gate before enabling actual flashing
 
