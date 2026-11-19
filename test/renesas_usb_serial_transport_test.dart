@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:samsung_pcb_programmer/renesas_78k0r_protocol.dart';
 import 'package:samsung_pcb_programmer/renesas_usb_serial_transport.dart';
+import 'package:samsung_pcb_programmer/renesas_protocol_session.dart';
 
 class FakeUsbDriver implements RenesasUsbPortDriver {
   final StreamController<Uint8List> controller =
@@ -39,6 +40,22 @@ class FakeUsbDriver implements RenesasUsbPortDriver {
   @override
   Future<void> write(Uint8List bytes) async {
     written = Uint8List.fromList(bytes);
+    if (bytes.length == 5 && bytes[2] == 0xc0) {
+      final signature = <int>[
+        0x10, 0x7f, 0x04, 0xdc, 0xfd, 0xfd, 0xff, 0x3f, 0x00,
+        ...'D78F1201  '.codeUnits,
+        0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff,
+      ];
+      final checksum =
+          (-(signature.length + signature.fold<int>(0, (a, b) => a + b))) & 0xff;
+      final signatureFrame = Uint8List.fromList([
+        0x02, signature.length, ...signature, checksum, 0x03,
+      ]);
+      scheduleMicrotask(() {
+        controller.add(Uint8List.fromList([0x02, 0x01, 0x06, 0xf9, 0x03]));
+        controller.add(signatureFrame);
+      });
+    }
   }
 
   Future<void> dispose() => controller.close();
@@ -95,6 +112,24 @@ void main() {
       final pending = transport.readResponseBytes();
       driver.controller.add(Uint8List.fromList([0x02, 0x01, 0x06, 0xf8, 0x03]));
       await expectLater(pending, throwsFormatException);
+    });
+
+
+    test('runs the read-only silicon-signature transaction over USB serial', () async {
+      final session = RenesasProtocolSession(
+        channel: RenesasUsbWireChannel(transport),
+        timing: const RenesasSessionTiming(
+          interFrame: Duration.zero,
+          commandTimeout: Duration(seconds: 1),
+          dataTimeout: Duration(seconds: 1),
+        ),
+      );
+
+      final signature = await session.readSiliconSignature();
+
+      expect(signature.length, 27);
+      expect(String.fromCharCodes(signature.sublist(9, 19)).trim(), 'D78F1201');
+      expect(driver.written, Renesas78k0rProtocol.siliconSignatureFrame());
     });
 
     test('reports that USB plugin does not support hardware BREAK', () {
