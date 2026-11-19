@@ -132,7 +132,7 @@ class RenesasProtocolSession {
       throw StateError('Chip erase was not explicitly confirmed.');
     }
 
-    final totalFrames = 3 + plan.programDataFrames.length +
+    final totalFrames = 4 + plan.programDataFrames.length +
         plan.verifyDataFrames.length;
     var completedFrames = 0;
     void report(RenesasProgramStage stage) {
@@ -146,12 +146,14 @@ class RenesasProtocolSession {
     report(RenesasProgramStage.erase);
     await _exchangeCommand(plan.eraseFrame, operation: 'chip erase');
     completedFrames++;
+    report(RenesasProgramStage.erase);
     report(RenesasProgramStage.programCommand);
     await _exchangeCommand(
       plan.programCommandFrame,
       operation: 'programming command',
     );
     completedFrames++;
+    report(RenesasProgramStage.programCommand);
     for (var i = 0; i < plan.programDataFrames.length; i++) {
       await _exchangeData(
         plan.programDataFrames[i],
@@ -172,6 +174,7 @@ class RenesasProtocolSession {
       operation: 'program internal verify',
     );
     completedFrames++;
+    report(RenesasProgramStage.internalVerify);
 
     report(RenesasProgramStage.verifyCommand);
     await _exchangeCommand(
@@ -179,6 +182,7 @@ class RenesasProtocolSession {
       operation: 'verify command',
     );
     completedFrames++;
+    report(RenesasProgramStage.verifyCommand);
     for (var i = 0; i < plan.verifyDataFrames.length; i++) {
       await _exchangeData(
         plan.verifyDataFrames[i],
