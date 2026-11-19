@@ -17,9 +17,13 @@ Research date: 2026-11-19
 - A third-party programmer reference lists generic 78K0R signals as GND, VCC, RESET, TOOL0 and FLMD0 and offers erase/blank-check/program/verify/start operations. This is a useful cross-check only, not Samsung PCB connector documentation:
   - https://www.jcwolfram.de/projekte/uprog2/reference.php
 
+## UART entry details confirmed in U19486
+
+The U19486 UART-mode section specifies an initial **9,600 bps**, no parity, 8 data bits, with **2 stop bits from programmer to MCU and 1 stop bit from MCU to programmer** until a Baud Rate Set command takes effect. It also describes the TOOL0 line as physically single-wire, with the programmer and target taking turns transmitting. The app now records these initial framing constants in the protocol module and tests them. These are Renesas family-reference settings, not proof of the Samsung app's later selected baud rate or its exact USB-adapter implementation. The application note also documents programming-mode entry using VDD, FLMD0 and RESET sequencing; the required board-specific power and timing values must be verified before implementing that sequence.
+
 ## What this does NOT establish
 
-The research does not establish the Samsung PCB's connector pin numbering, which pins are actually routed, adapter voltage, safe power sequencing, pulse polarity/duration, UART baud rate, synchronization bytes, exact command/data frame bytes, chunk size, status handling, security settings, or whether the 0459M image is compatible with a 0459C/0459G PCB.
+The research does not establish the Samsung PCB's connector pin numbering, which pins are actually routed, adapter voltage, safe power sequencing, pulse polarity/duration, the Samsung app's post-entry baud-rate choice, exact USB-adapter direction switching, Samsung-specific chunk policy, security settings, or whether the 0459M image is compatible with a 0459C/0459G PCB.
 
 The original APK's static strings such as 0xC0, 0x20, and 0x06 are not enough to reconstruct complete command frames. They may represent a signature request, status, or application-specific state, but they must not be treated as standalone command bytes without evidence.
 
