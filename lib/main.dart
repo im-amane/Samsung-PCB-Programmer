@@ -405,12 +405,6 @@ class _DashboardPageState extends State<DashboardPage> {
                   icon: const Icon(Icons.usb_rounded),
                   label: Text(scanning ? 'Scanning…' : 'Scan USB devices'),
                 ),
-                if (port != null)
-                  TextButton.icon(
-                    onPressed: _disconnect,
-                    icon: const Icon(Icons.link_off_rounded),
-                    label: const Text('Disconnect'),
-                  ),
                 if (devices.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   ...devices.map((d) => ListTile(
