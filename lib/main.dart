@@ -689,6 +689,7 @@ class _DashboardPageState extends State<DashboardPage> {
               'Programming and verify completed. Target remains in flash mode; no reset or power-off command was sent.';
           signatureDeviceName = null;
           signatureFlashLastAddress = null;
+          signatureMessage = 'Programming completed. Read target signature again before another flash operation.';
         });
       }
     } catch (e) {
@@ -699,6 +700,7 @@ class _DashboardPageState extends State<DashboardPage> {
         });
         signatureDeviceName = null;
         signatureFlashLastAddress = null;
+        signatureMessage = 'Signature invalidated after interrupted programming. Verify target state before continuing.';
       }
     } finally {
       if (mounted) setState(() => programming = false);
