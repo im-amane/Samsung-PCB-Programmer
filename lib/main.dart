@@ -286,6 +286,28 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
             const SizedBox(height: 18),
             _sectionCard(
+              icon: Icons.biotech_rounded,
+              title: 'ENGINE ANALYSIS · FROM ORIGINAL APK',
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Static analysis found programming-engine clues in the supplied APK:'),
+                  SizedBox(height: 8),
+                  Text('• DA41Engine / SerialTransport'),
+                  Text('• MCU clue: Renesas 78K0R / uPD78F1201'),
+                  Text('• TOOL0, DTR and RTS boot-mode clues'),
+                  Text('• Signature clue: 0xC0'),
+                  Text('• Mass Erase command clue: 0x20'),
+                  Text('• Chunked write, verify and reboot routine names'),
+                  SizedBox(height: 10),
+                  Text('These are reverse-engineering clues, not a validated command sequence. Exact packet formats, timing, voltage levels and board compatibility are still unconfirmed.'),
+                  SizedBox(height: 8),
+                  Text('Firmware assets identified: DA41-00814A.mot, DA41-00814D_0459G.mot and DA41-00814D_0459M.bin. Import the matching file manually; proprietary firmware binaries are not bundled in this public app.'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            _sectionCard(
               icon: Icons.lock_outline_rounded,
               title: 'PROGRAMMING CONTROLS',
               child: const Text(
