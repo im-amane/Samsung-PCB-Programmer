@@ -35,9 +35,9 @@ EXPECTED = {
 
 def canonicalize_srecord(data: bytes) -> bytes:
     text = data.decode("ascii")
-    text = text.replace("\\r\\n", "\\n").replace("\\r", "\\n")
-    if not text.endswith("\\n"):
-        text += "\\n"
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    if not text.endswith("\n"):
+        text += "\n"
     return text.encode("ascii")
 
 
