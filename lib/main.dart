@@ -15,6 +15,10 @@ import 'renesas_protocol_session.dart';
 import 'renesas_serial_transport.dart';
 import 'renesas_usb_serial_transport.dart';
 
+/// Keep destructive writes disabled until the exact Samsung PCB + adapter have passed a real bench commissioning test.
+/// Software-only/fake-channel tests do not satisfy this requirement.
+const bool hardwareBenchCommissioned = false;
+
 void main() => runApp(const SamsungPcbProgrammerApp());
 
 class SamsungPcbProgrammerApp extends StatelessWidget {
@@ -534,7 +538,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
   bool get _canProgram {
     final info = firmware;
-    return !programming &&
+    return hardwareBenchCommissioned &&
+        !programming &&
         !readingSignature &&
         usbTransport != null &&
         firmwareBytes != null &&
@@ -547,6 +552,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   String get _programReadinessMessage {
+    if (!hardwareBenchCommissioned) return 'HARDWARE COMMISSIONING REQUIRED: destructive erase/write is locked. The exact Samsung PCB revision, adapter pinout/voltage, RESET/FLMD0 sequence, TOOL0 direction switching, and a successful spare-board bench test have not been verified.';
     if (programming) return 'Programming is in progress. Keep USB connected and do not reset or power off.';
     if (usbTransport == null) return 'Connect an Android USB serial adapter first.';
     if (readingSignature) return 'Waiting for target signature.';
