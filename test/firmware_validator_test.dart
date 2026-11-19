@@ -18,7 +18,7 @@ void main() {
 
     test('accepts the S3/S7 record type used by the single-door image', () {
       final result = FirmwareValidator.validateSRecords(
-        Uint8List.fromList(utf8.encode('S3060000000001F8\\nS70500000000FA\\n')),
+        Uint8List.fromList(utf8.encode('S3060000000001F8\nS70500000000FA\n')),
       );
       expect(result.valid, isTrue);
       expect(result.dataRecords, 1);
