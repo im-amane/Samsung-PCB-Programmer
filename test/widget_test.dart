@@ -55,29 +55,35 @@ void main() {
     expect(find.text('Renesas 16 KB frame plan: READY (no bytes sent to PCB)'), findsOneWidget);
   });
 
-  testWidgets('each bundled DA41 profile selects its own verified firmware', (tester) async {
+  testWidgets('0459G profile selects its own verified firmware', (tester) async {
     await tester.pumpWidget(const SamsungPcbProgrammerApp());
     await tester.pumpAndSettle();
 
     final scrollable = dashboardScrollable();
-    final profile0459G = find.text('0459G · Double Door');
-    await reveal(tester, profile0459G, scrollable);
-    await tester.tap(profile0459G);
+    final profile = find.text('0459G · Double Door');
+    await reveal(tester, profile, scrollable);
+    await tester.tap(profile);
     await tester.pumpAndSettle();
 
-    final firmware0459G = find.text('DA41-00814D_0459G.mot');
-    await reveal(tester, firmware0459G, scrollable);
-    expect(firmware0459G, findsOneWidget);
+    final firmwareName = find.text('DA41-00814D_0459G.mot');
+    await reveal(tester, firmwareName, scrollable);
+    expect(firmwareName, findsOneWidget);
     expect(find.text('Exact profile match: YES'), findsOneWidget);
+  });
 
-    final profile0459M = find.text('0459M · Single Door');
-    await reveal(tester, profile0459M, scrollable);
-    await tester.tap(profile0459M);
+  testWidgets('0459M profile selects its own verified firmware', (tester) async {
+    await tester.pumpWidget(const SamsungPcbProgrammerApp());
     await tester.pumpAndSettle();
 
-    final firmware0459M = find.text('DA41-00814D_0459M.bin');
-    await reveal(tester, firmware0459M, scrollable);
-    expect(firmware0459M, findsOneWidget);
+    final scrollable = dashboardScrollable();
+    final profile = find.text('0459M · Single Door');
+    await reveal(tester, profile, scrollable);
+    await tester.tap(profile);
+    await tester.pumpAndSettle();
+
+    final firmwareName = find.text('DA41-00814D_0459M.bin');
+    await reveal(tester, firmwareName, scrollable);
+    expect(firmwareName, findsOneWidget);
     expect(find.text('Exact profile match: YES'), findsOneWidget);
   });
 }
