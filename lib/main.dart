@@ -538,7 +538,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   _lineSwitch('Receive DTR asserted', receiveDtr, (v) => _setUsbLineProfile(receiveDtr: v)),
                   _lineSwitch('Receive RTS asserted', receiveRts, (v) => _setUsbLineProfile(receiveRts: v)),
                   const SizedBox(height: 6),
-                  Text('USB plugin hardware BREAK: not supported. RESET/FLMD0 and boot-entry control are still not implemented, so programming remains locked.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  Text('USB serial Dart API hardware BREAK: not exposed. RESET/FLMD0 and boot-entry control are still not implemented, so programming remains locked.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ],
               ),
             ),
