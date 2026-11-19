@@ -154,8 +154,11 @@ void main() {
       await limited.close();
     });
 
-    test('reports that USB plugin does not support hardware BREAK', () {
-      expect(transport.supportsHardwareBreak, isFalse);
+    test('asserts and releases hardware BREAK through the USB driver', () async {
+      expect(transport.supportsHardwareBreak, isTrue);
+      await transport.setBreak(true);
+      await transport.setBreak(false);
+      expect(driver.calls, containsAllInOrder(['break:true', 'break:false']));
     });
   });
 }

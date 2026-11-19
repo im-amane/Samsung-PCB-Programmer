@@ -5,7 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:usb_serial/usb_serial.dart';
+import 'package:usb_serial_next/usb_serial_next.dart' as usb_next;
 import 'package:flutter_libserialport/flutter_libserialport.dart' as libserial;
 
 import 'firmware_validator.dart';
@@ -90,9 +90,9 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int selectedIndex = 1;
-  List<UsbDevice> devices = [];
-  StreamSubscription<UsbEvent>? usbEventSubscription;
-  UsbPort? port;
+  List<usb_next.UsbDevice> devices = [];
+  StreamSubscription<usb_next.UsbDeviceEvent>? usbEventSubscription;
+  usb_next.UsbSerialPort? port;
   RenesasSerialTransport? nativeTransport;
   RenesasUsbSerialTransport? usbTransport;
   bool transmitDtr = false;
@@ -104,7 +104,7 @@ class _DashboardPageState extends State<DashboardPage> {
   String signatureMessage = 'Target signature not read.';
   String? connectedNativePath;
   List<String> nativePorts = [];
-  UsbDevice? connectedDevice;
+  usb_next.UsbDevice? connectedDevice;
   FirmwareInfo? firmware;
   final Map<String, Uint8List> apkFirmware = {};
   final Map<String, Uint8List> apkImages = {};
@@ -117,7 +117,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
-    usbEventSubscription = UsbSerial.usbEventStream?.listen(
+    usbEventSubscription = usb_next.UsbSerial.instance.deviceEvents.listen(
       _handleUsbEvent,
       onError: (Object error) {
         if (mounted) setState(() => connectionMessage = 'USB event listener failed: $error');
@@ -136,13 +136,13 @@ class _DashboardPageState extends State<DashboardPage> {
     super.dispose();
   }
 
-  void _handleUsbEvent(UsbEvent event) {
-    if (event.event == UsbEvent.ACTION_USB_ATTACHED) {
+  void _handleUsbEvent(usb_next.UsbDeviceEvent event) {
+    if (event is usb_next.UsbDeviceAttached) {
       _scanUsb();
       return;
     }
-    if (event.event == UsbEvent.ACTION_USB_DETACHED &&
-        event.device?.deviceId == connectedDevice?.deviceId) {
+    if (event is usb_next.UsbDeviceDetached &&
+        event.device.deviceId == connectedDevice?.deviceId) {
       _disconnect();
       if (mounted) {
         setState(() => connectionMessage = 'USB adapter unplugged. Connection closed.');
@@ -153,7 +153,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _scanUsb() async {
     setState(() => scanning = true);
     try {
-      final found = await UsbSerial.listDevices();
+      final found = await usb_next.UsbSerial.instance.listDevices();
       var nativeFound = <String>[];
       try {
         nativeFound = libserial.SerialPort.availablePorts;
@@ -178,8 +178,8 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Future<void> _connect(UsbDevice device) async {
-    UsbPort? candidate;
+  Future<void> _connect(usb_next.UsbDevice device) async {
+    usb_next.UsbSerialPort? candidate;
     try {
       await usbTransport?.close();
       usbTransport = null;
@@ -191,27 +191,18 @@ class _DashboardPageState extends State<DashboardPage> {
       connectedNativePath = null;
       oldNative?.close();
 
-      candidate = await device.create();
-      if (candidate == null) {
-        if (mounted) {
-          setState(() => connectionMessage =
-              'No serial driver is available for this USB device.');
-        }
-        return;
-      }
+      candidate = await usb_next.UsbSerial.instance.open(
+        device,
+        config: const usb_next.SerialConfig(
+          baudRate: 9600,
+          dataBits: 8,
+          stopBits: usb_next.StopBits.one,
+          parity: usb_next.Parity.none,
+        ),
+      );
       final openedPort = candidate;
-      final opened = await openedPort.open();
-      if (!opened) {
-        await openedPort.close();
-        candidate = null;
-        if (mounted) {
-          setState(() => connectionMessage =
-              'USB permission or connection was denied.');
-        }
-        return;
-      }
-
-      // Opening a port must not silently change line state or send MCU bytes.
+      // Opening uses 9600 8N1 with DTR/RTS left unchanged. The Renesas
+      // session switches to 8N2 before the first transmit frame.
       if (!mounted) {
         await openedPort.close();
         candidate = null;
@@ -595,7 +586,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.usb),
                         title: Text(d.productName ?? d.deviceName ?? 'USB serial device'),
-                        subtitle: Text('VID: ${d.vid ?? 0}  ·  PID: ${d.pid ?? 0}'),
+                        subtitle: Text('VID: ${d.vendorId}  ·  PID: ${d.productId}'),
                         trailing: connectedDevice?.deviceId == d.deviceId
                             ? const Icon(Icons.check_circle, color: Colors.green)
                             : TextButton(onPressed: () => _connect(d), child: const Text('Connect')),

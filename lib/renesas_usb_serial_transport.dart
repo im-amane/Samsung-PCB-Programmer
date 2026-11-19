@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:usb_serial/usb_serial.dart';
+import 'package:usb_serial_next/usb_serial_next.dart' as usb_next;
 
 import 'renesas_78k0r_protocol.dart';
 import 'renesas_protocol_session.dart';
@@ -21,16 +21,17 @@ abstract interface class RenesasUsbPortDriver {
   Future<void> setDtr(bool asserted);
   Future<void> setRts(bool asserted);
   Future<void> write(Uint8List bytes);
+  Future<void> setBreak(bool asserted);
 }
 
 /// Production adapter for the Android usb_serial plugin.
 class AndroidUsbSerialPortDriver implements RenesasUsbPortDriver {
   AndroidUsbSerialPortDriver(this.port);
 
-  final UsbPort port;
+  final usb_next.UsbSerialPort port;
 
   @override
-  Stream<Uint8List>? get inputStream => port.inputStream;
+  Stream<Uint8List> get inputStream => port.input;
 
   @override
   Future<void> configure({
@@ -39,16 +40,24 @@ class AndroidUsbSerialPortDriver implements RenesasUsbPortDriver {
     required int stopBits,
     required int parity,
   }) =>
-      port.setPortParameters(baudRate, dataBits, stopBits, parity);
+      port.setConfig(usb_next.SerialConfig(
+        baudRate: baudRate,
+        dataBits: dataBits,
+        stopBits: stopBits == 2 ? usb_next.StopBits.two : usb_next.StopBits.one,
+        parity: usb_next.Parity.none,
+      ));
 
   @override
-  Future<void> setDtr(bool asserted) => port.setDTR(asserted);
+  Future<void> setDtr(bool asserted) => port.setDtr(asserted);
 
   @override
-  Future<void> setRts(bool asserted) => port.setRTS(asserted);
+  Future<void> setRts(bool asserted) => port.setRts(asserted);
 
   @override
   Future<void> write(Uint8List bytes) => port.write(bytes);
+
+  @override
+  Future<void> setBreak(bool asserted) => port.setBreak(asserted);
 }
 
 /// Explicit USB control-line states for a particular adapter wiring.
@@ -71,9 +80,8 @@ class UsbTool0LineProfile {
 
 /// Android USB serial transport for the Renesas 78K0R UART protocol.
 ///
-/// The usb_serial Dart API exposes DTR and RTS but does not expose its native
-/// driver's UART BREAK method. This transport therefore does not pretend to support BREAK-based
-/// boot entry. Target reset/FLMD0 sequencing must be provided by a separately
+/// usb_serial_next exposes DTR, RTS, BREAK and input-buffer purge. BREAK
+/// support still depends on the selected USB-UART chip and its driver. Target reset/FLMD0 sequencing must be provided by a separately
 /// verified adapter/controller before any programming operation is enabled.
 class RenesasUsbSerialTransport {
   RenesasUsbSerialTransport({
@@ -120,7 +128,12 @@ class RenesasUsbSerialTransport {
   Object? _streamError;
   bool _closed = false;
 
-  bool get supportsHardwareBreak => false;
+  bool get supportsHardwareBreak => true;
+
+  Future<void> setBreak(bool asserted) async {
+    _ensureOpen();
+    await driver.setBreak(asserted);
+  }
 
   Future<void> transmitMode() async {
     _ensureOpen();
@@ -128,7 +141,7 @@ class RenesasUsbSerialTransport {
       baudRate: baudRate,
       dataBits: Renesas78k0rProtocol.dataBits,
       stopBits: Renesas78k0rProtocol.programmerToTargetStopBits,
-      parity: UsbPort.PARITY_NONE,
+      parity: 0,
     );
     await driver.setDtr(lineProfile.transmitDtr);
     await driver.setRts(lineProfile.transmitRts);
