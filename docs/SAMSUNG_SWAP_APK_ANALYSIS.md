@@ -57,3 +57,24 @@ python3 tools/extract_samsung_swap_assets.py /path/to/Samsung_Swap.apk
 ```
 
 The script extracts the three firmware files and four board/application images into `assets/original_apk/`, prints SHA-256 hashes, and does not modify the APK.
+
+
+## Additional native transport and firmware-map inspection
+
+The ARM64 native serial library exports libserialport-style functions including `sp_start_break`, `sp_set_config_rts`, `sp_set_config_dtr`, serial read/write and port configuration functions. Together with the Dart strings for TOOL0, DTR and RTS pulse variants, this confirms the application has low-level serial-control capability. It still does not reveal the exact pulse durations, polarity selection for a specific board, target wiring, or safe electrical levels.
+
+All three firmware assets contain exactly 16,384 data bytes mapped from address `0x0000` through `0x3FFF`, matching the app's 16 KB MCU label:
+
+| Firmware | S-record data records | Data bytes | Address range |
+|---|---:|---:|---|
+| `DA41-00814A.mot` | 512 | 16,384 | `0x0000–0x3FFF` |
+| `DA41-00814D_0459G.mot` | 512 | 16,384 | `0x0000–0x3FFF` |
+| `DA41-00814D_0459M.bin` | 1,024 | 16,384 | `0x0000–0x3FFF` |
+
+The 0459G and 0459M images cover the same address range but differ at 7,835 byte positions. The 0459C and 0459G images differ at 15,146 positions. These comparisons show the images are materially different firmware builds, not merely different filenames or S-record line layouts. They do **not** prove cross-model compatibility or that a Double Door PCB can be converted by writing the 0459M image.
+
+The APK's visible profile labels associate 0459C and 0459G with Double Door and 0459M with Single Door. No verified source in this APK establishes that 0459M is safe for a 0459C/0459G board. Treat that conversion as unverified until the exact PCB part number/revision, hardware population, sensor/relay mapping and service documentation are checked.
+
+## Current app behavior
+
+The Android app can import the original APK selected by the user, locate the three known firmware assets in its ZIP container, extract them into memory, validate S-record structure/checksums, compute SHA-256 and compare the exact filename/hash against the selected profile. The APK and extracted proprietary firmware are not committed to this public repository. USB serial discovery/open/disconnect remains open-only; no boot-mode pulses or flash commands are sent.
