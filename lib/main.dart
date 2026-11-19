@@ -11,6 +11,7 @@ import 'firmware_validator.dart';
 import 'srecord_image.dart';
 import 'renesas_program_plan.dart';
 import 'renesas_serial_transport.dart';
+import 'renesas_usb_serial_transport.dart';
 
 void main() => runApp(const SamsungPcbProgrammerApp());
 
@@ -90,6 +91,11 @@ class _DashboardPageState extends State<DashboardPage> {
   List<UsbDevice> devices = [];
   UsbPort? port;
   RenesasSerialTransport? nativeTransport;
+  RenesasUsbSerialTransport? usbTransport;
+  bool transmitDtr = false;
+  bool transmitRts = false;
+  bool receiveDtr = false;
+  bool receiveRts = false;
   String? connectedNativePath;
   List<String> nativePorts = [];
   UsbDevice? connectedDevice;
@@ -111,6 +117,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   void dispose() {
+    usbTransport?.close();
     port?.close();
     nativeTransport?.close();
     super.dispose();
@@ -146,6 +153,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _connect(UsbDevice device) async {
     try {
+      await usbTransport?.close();
+      usbTransport = null;
       await port?.close();
       final oldNative = nativeTransport;
       nativeTransport = null;
@@ -167,8 +176,10 @@ class _DashboardPageState extends State<DashboardPage> {
         await candidate.close();
         return;
       }
+      final usbLink = RenesasUsbSerialTransport(driver: AndroidUsbSerialPortDriver(candidate), lineProfile: _usbLineProfile);
       setState(() {
         port = candidate;
+        usbTransport = usbLink;
         connectedDevice = device;
         connectionMessage = 'USB serial port opened without sending data or changing serial parameters. Original protocol is not yet validated.';
       });
@@ -180,6 +191,8 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _connectNative(String path) async {
     libserial.SerialPort? candidate;
     try {
+      await usbTransport?.close();
+      usbTransport = null;
       await port?.close();
       nativeTransport?.close();
       nativeTransport = null;
@@ -209,14 +222,17 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _disconnect() async {
     final current = port;
+    final usb = usbTransport;
     final native = nativeTransport;
     setState(() {
       port = null;
+      usbTransport = null;
       connectedDevice = null;
       nativeTransport = null;
       connectedNativePath = null;
       connectionMessage = 'Serial interface disconnected.';
     });
+    await usb?.close();
     await current?.close();
     native?.close();
   }
@@ -509,6 +525,24 @@ class _DashboardPageState extends State<DashboardPage> {
               ]),
             ),
             const SizedBox(height: 18),
+            _sectionCard(
+              icon: Icons.tune_rounded,
+              title: 'USB TOOL0 ADAPTER PROFILE',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('These settings define the DTR/RTS states the app will request when the protocol transport is explicitly used. They do not identify your cable wiring.'),
+                  const SizedBox(height: 8),
+                  _lineSwitch('Transmit DTR asserted', transmitDtr, (v) => _setUsbLineProfile(transmitDtr: v)),
+                  _lineSwitch('Transmit RTS asserted', transmitRts, (v) => _setUsbLineProfile(transmitRts: v)),
+                  _lineSwitch('Receive DTR asserted', receiveDtr, (v) => _setUsbLineProfile(receiveDtr: v)),
+                  _lineSwitch('Receive RTS asserted', receiveRts, (v) => _setUsbLineProfile(receiveRts: v)),
+                  const SizedBox(height: 6),
+                  Text('USB plugin hardware BREAK: not supported. RESET/FLMD0 and boot-entry control are still not implemented, so programming remains locked.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
             if (selected.board == 'DA41-00814D' && apkImages.containsKey('samsung_da41_00814d.jpg')) ...[
               _sectionCard(
                 icon: Icons.developer_board_rounded,
@@ -641,6 +675,37 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
   }
+
+  UsbTool0LineProfile get _usbLineProfile => UsbTool0LineProfile(
+        transmitDtr: transmitDtr,
+        transmitRts: transmitRts,
+        receiveDtr: receiveDtr,
+        receiveRts: receiveRts,
+      );
+
+  void _setUsbLineProfile({
+    bool? transmitDtr,
+    bool? transmitRts,
+    bool? receiveDtr,
+    bool? receiveRts,
+  }) {
+    setState(() {
+      this.transmitDtr = transmitDtr ?? this.transmitDtr;
+      this.transmitRts = transmitRts ?? this.transmitRts;
+      this.receiveDtr = receiveDtr ?? this.receiveDtr;
+      this.receiveRts = receiveRts ?? this.receiveRts;
+      usbTransport?.updateLineProfile(_usbLineProfile);
+    });
+  }
+
+  Widget _lineSwitch(String title, bool value, ValueChanged<bool> onChanged) =>
+      SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        title: Text(title),
+        value: value,
+        onChanged: onChanged,
+      );
 
   Widget _sectionCard({required IconData icon, required String title, required Widget child}) =>
       Card(
