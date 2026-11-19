@@ -91,10 +91,8 @@ class RenesasProtocolSession {
       Renesas78k0rProtocol.siliconSignatureFrame(),
       operation: 'silicon signature',
     );
-    final frame = Renesas78k0rProtocol.decodeResponseFrame(
-      await channel.readFrame(timing.dataTimeout),
-    );
-    return frame.data;
+    final frame = await channel.readFrame(timing.dataTimeout);
+    return Renesas78k0rProtocol.decodeSiliconSignatureFrame(frame).raw;
   }
 
   /// Performs chip erase, write and verify. This is intentionally not exposed
