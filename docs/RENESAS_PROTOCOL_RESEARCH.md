@@ -19,7 +19,7 @@ Research date: 2026-11-19
 
 ## UART entry details confirmed in U19486
 
-The U19486 UART-mode section specifies an initial **9,600 bps**, no parity, 8 data bits, with **2 stop bits from programmer to MCU and 1 stop bit from MCU to programmer** until a Baud Rate Set command takes effect. It also describes the TOOL0 line as physically single-wire, with the programmer and target taking turns transmitting. The app now records these initial framing constants in the protocol module and tests them. These are Renesas family-reference settings, not proof of the Samsung app's later selected baud rate or its exact USB-adapter implementation. The application note also documents programming-mode entry using VDD, FLMD0 and RESET sequencing; the required board-specific power and timing values must be verified before implementing that sequence.
+The U19486 UART-mode section specifies an initial **9,600 bps**, no parity, 8 data bits, with **2 stop bits from programmer to MCU and 1 stop bit from MCU to programmer** until a Baud Rate Set command takes effect. It also describes TOOL0 as a physically single-wire line, with the programmer and target taking turns transmitting. The app records and tests these framing constants. U19486 §1.5.2-1.5.3 and §5.2 describe the 78K0R/Ix3 entry sequence: hold RESET low and FLMD0 low, apply VDD, raise FLMD0, wait at least 2 ms (tPR), then release RESET. The target emits a READY 00H pulse; the documented Ix3 timing table gives a READY start window of 4.4-100 ms and a nominal pulse width around 937.5 μs. After READY, the programmer waits t01 (110.6 μs), sends two 00H synchronization bytes at 9600 bps, then sends the Reset command and checks its status. The app now implements the READY-pulse check, the t01 wait, the two synchronization bytes and Reset command. It still does **not** drive VDD, FLMD0 or RESET: those controls and their exact Samsung adapter mapping remain unimplemented until the cable's verified wiring is known. These are Renesas family-reference timings for 78K0R/Ix3, not proof of the Samsung board's later selected baud rate or its exact adapter implementation.
 
 ## What this does NOT establish
 
@@ -29,7 +29,7 @@ The original APK's static strings such as 0xC0, 0x20, and 0x06 are not enough to
 
 ## Engineering work added to the independent app
 
-The app now parses Motorola S-record data into an address-indexed memory map, rejects overlapping records and malformed/count/termination errors, detects address gaps, and prepares generic data blocks. A separate Renesas 78K0R frame codec now builds command/data frames and validates response checksums/status values. A 16 KB plan builder validates a complete 0x0000-0x3FFF image and prepares chip-erase, program, 64 data frames, verify and verify-data frames. Unit tests cover documented frame vectors and plan preparation. Neither the codec nor the plan is connected to the physical USB adapter; the app sends no commands.
+The app parses Motorola S-record data into an address-indexed memory map, rejects overlapping records and malformed/count/termination errors, detects address gaps, and prepares generic data blocks. The Renesas 78K0R codec builds command/data frames and validates response checksums/status values. A 16 KB plan builder validates a complete 0x0000-0x3FFF image and prepares chip-erase, program, 64 data frames, verify and verify-data frames. The Android USB serial transport is connected to a read-only diagnostic: it checks the raw READY pulse, sends two synchronization bytes, issues the Reset command, then requests and validates the silicon signature. The same transaction is tested through a fake USB byte stream. The destructive program session remains fake-channel tested and is not exposed through the dashboard.
 
 ## Gate before enabling actual flashing
 
@@ -37,7 +37,7 @@ The app now parses Motorola S-record data into an address-indexed memory map, re
 2. Obtain the correct Renesas programming documentation/parameter data for the 78K0R/IB3 device, not a sibling device.
 3. Confirm the Samsung board's connector and adapter wiring against reliable service documentation and measurements.
 4. Confirm target voltage and reset/FLMD0/TOOL0 electrical behavior with suitable isolated bench equipment.
-5. Implement only the documented protocol and test synchronization/signature read first.
+5. Confirm the READY pulse and test the implemented 00H/Reset synchronization and silicon-signature read first; do not infer target power/reset control from DTR/RTS alone.
 6. Test erase/write/verify on a spare isolated PCB with a recovery path.
 7. Independently establish sensor, relay and refrigerator-model compatibility before treating 0459M as a safe conversion image.
 
