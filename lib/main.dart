@@ -43,9 +43,9 @@ class BoardProfile {
 
 const boardProfiles = <BoardProfile>[
   BoardProfile('00755A · RT36 Inverter', 'DA41-00755A', '', 'RT36', ''),
-  BoardProfile('0459C · Double Door', 'DA41-00814A', 'DA41-00814A.mot', '0459C', '6d51f294e21cdbb2efa207f63fff41c69468eba86199d419578af9a98cac5f02'),
-  BoardProfile('0459G · Double Door', 'DA41-00814D', 'DA41-00814D_0459G.mot', '0459G', 'fc91858a2423324184ef708341e4a6929dfa8b39f53f7c479cbf152bec589873'),
-  BoardProfile('0459M · Single Door', 'DA41-00814D', 'DA41-00814D_0459M.bin', '0459M', '4e96a1f2e3c6f39c9af2e61e2f07b69c12123546e4d93365457800e5f76adfc9'),
+  BoardProfile('0459C · Double Door', 'DA41-00814A', 'DA41-00814A.mot', '0459C', '674a4e4c632ee167849269e05341d133243a310ab8661c712cbaa179f813e5dc'),
+  BoardProfile('0459G · Double Door', 'DA41-00814D', 'DA41-00814D_0459G.mot', '0459G', 'd6e23a11b200a61ba5943a760bc9b2fdd0898842b13fad9290a554d5ed128860'),
+  BoardProfile('0459M · Single Door', 'DA41-00814D', 'DA41-00814D_0459M.bin', '0459M', 'ee709d6f843c429f726953ad7a1550819d8e43bf6d9e6604fd75cbd72d317499'),
   BoardProfile('00838A · French Door', 'DA41-00838A', '', 'French Door', ''),
 ];
 
@@ -312,14 +312,15 @@ class _DashboardPageState extends State<DashboardPage> {
   void _inspectFirmware(String name, Uint8List bytes) {
     final validation = FirmwareValidator.validateSRecords(bytes);
     final digest = FirmwareValidator.sha256Hex(bytes);
+    final canonicalDigest = FirmwareValidator.canonicalSRecordSha256Hex(bytes);
     final expected = boardProfiles[selectedIndex];
     final profileMatches = expected.firmware.isNotEmpty &&
-        name == expected.firmware && digest == expected.sha256;
+        name == expected.firmware && canonicalDigest == expected.sha256;
     final profileMessage = profileMatches
-        ? 'Exact filename and SHA-256 match for selected APK profile.'
+        ? 'Exact filename and canonical S-record SHA-256 match for selected APK profile (line endings normalized).'
         : expected.firmware.isEmpty
             ? 'No bundled firmware or verified hash exists for this board profile.'
-            : 'PROFILE MISMATCH: expected ${expected.firmware} with SHA-256 ${expected.sha256}.';
+            : 'PROFILE MISMATCH: expected ${expected.firmware} with canonical SHA-256 ${expected.sha256}.';
     SRecordImage? parsedImage;
     var preparedBlocks = 0;
     var protocolPlanReady = false;
