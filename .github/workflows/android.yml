@@ -34,19 +34,22 @@ jobs:
               if not root.exists():
                   continue
               for path in root.rglob("build.gradle*"):
-                  text = path.read_text()
-                  text = re.sub(r"compileSdkVersion\s+\d+", "compileSdkVersion 36", text)
-                  text = re.sub(r"compileSdk\s*=\s*\d+", "compileSdk = 36", text)
-                  text = text.replace("compileSdkVersion flutter.compileSdkVersion", "compileSdkVersion 36")
-                  text = text.replace("compileSdk = flutter.compileSdkVersion", "compileSdk = 36")
-                  path.write_text(text)
+                  content = path.read_text()
+                  content = re.sub(r"compileSdkVersion\\s+\\d+", "compileSdkVersion 36", content)
+                  content = re.sub(r"compileSdk\\s*=\\s*\\d+", "compileSdk = 36", content)
+                  content = content.replace("compileSdkVersion flutter.compileSdkVersion", "compileSdkVersion 36")
+                  content = content.replace("compileSdk = flutter.compileSdkVersion", "compileSdk = 36")
+                  path.write_text(content)
           PY
-      - name: Patch legacy USB serial repository declaration
+      - name: Patch legacy Android plugin repositories
         run: |
-          PLUGIN="$HOME/.pub-cache/hosted/pub.dev/usb_serial-0.5.2/android/build.gradle"
-          if [ -f "$PLUGIN" ]; then
-            sed -i 's/jcenter()/mavenCentral()/g' "$PLUGIN"
-          fi
+          for PLUGIN in \
+            "$HOME/.pub-cache/hosted/pub.dev/usb_serial-0.5.2/android/build.gradle" \
+            "$HOME/.pub-cache/hosted/pub.dev/flutter_libserialport-0.6.0/android/build.gradle"; do
+            if [ -f "$PLUGIN" ]; then
+              sed -i 's/jcenter()/mavenCentral()/g' "$PLUGIN"
+            fi
+          done
       - name: Run unit tests
         run: flutter test
       - name: Build debug APK
