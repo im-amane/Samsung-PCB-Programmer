@@ -10,7 +10,9 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 - PCB profile selector for the currently documented DA41 variants
 - USB OTG serial-device discovery and connection
 - Import the original Samsung Swap APK locally and extract its three DA41 firmware assets into app memory (the APK and proprietary firmware are not uploaded or committed)
-- Firmware file import, SHA-256 fingerprint, and Motorola S-record checksum checks
+- Firmware file import, strict Motorola S-record structure/checksum/termination validation, payload size and address-range reporting
+- Exact SHA-256 fingerprint and selected-profile matching
+- Automated firmware-parser unit tests (`flutter test`), run before every CI APK build
 - Static-analysis findings from the supplied Samsung Swap APK
 - Offline firmware validator checks Motorola S-record counts/checksums and compares extracted file sizes and SHA-256 hashes with the APK reference values (`python3 tools/validate_firmware.py <files...>`)
 - Detailed APK findings and exact bundled firmware hashes in [docs/SAMSUNG_SWAP_APK_ANALYSIS.md](docs/SAMSUNG_SWAP_APK_ANALYSIS.md)
@@ -23,7 +25,7 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 3. Tap **Import original Samsung Swap APK** and choose your local `Samsung_Swap.apk`.
 4. The app extracts the three known firmware assets in memory. Tap **Load selected firmware from APK**.
 5. Check the record/checksum result and the exact SHA-256 profile match.
-6. USB scan/connect currently opens the serial port only. It does not enter bootloader mode or send flash commands.
+6. USB scan/connect currently opens the serial port only. It does not assume a baud rate, change boot pins, or send flash commands.
 
 The public repository does not redistribute the original APK or its proprietary firmware assets. Importing the APK on your own device avoids committing those binaries to a public repository.
 
@@ -41,7 +43,7 @@ python3 tools/extract_samsung_swap_assets.py /path/to/Samsung_Swap.apk
 The script writes the extracted files under `assets/original_apk/` and prints SHA-256 hashes. The APK itself is not committed to this repository.
 
 ## Not yet implemented
-This independent app does not yet perform MCU erase, flash write, target verification, or reboot. Static inspection found symbols and UI messages associated with those operations, but symbol names and success strings are not proof of the actual packet format or hardware compatibility. Those operations remain disabled until the exact PCB revision, connector pinout, electrical levels, bootloader protocol, and firmware compatibility are confirmed and tested on safe bench hardware. The original APK's verification mechanism is not modified or bypassed.
+This independent app does not yet perform MCU erase, flash write, target verification, or reboot. The USB link is deliberately open-only and does not apply the unverified 9600-baud setting from the earlier prototype. Static inspection found symbols and UI messages associated with those operations, but symbol names and success strings are not proof of the actual packet format or hardware compatibility. Those operations remain disabled until the exact PCB revision, connector pinout, electrical levels, bootloader protocol, and firmware compatibility are confirmed and tested on safe bench hardware. The original APK's verification mechanism is not modified or bypassed.
 
 ## Build locally
 ```bash
