@@ -16,7 +16,7 @@ class SamsungPcbProgrammerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'Samsung PCB Programmer',
+        title: 'Samsung Swap',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
@@ -40,9 +40,11 @@ class BoardProfile {
 }
 
 const boardProfiles = <BoardProfile>[
+  BoardProfile('00755A · RT36 Inverter', 'DA41-00755A', '', 'RT36', ''),
   BoardProfile('0459C · Double Door', 'DA41-00814A', 'DA41-00814A.mot', '0459C', '6d51f294e21cdbb2efa207f63fff41c69468eba86199d419578af9a98cac5f02'),
   BoardProfile('0459G · Double Door', 'DA41-00814D', 'DA41-00814D_0459G.mot', '0459G', 'fc91858a2423324184ef708341e4a6929dfa8b39f53f7c479cbf152bec589873'),
   BoardProfile('0459M · Single Door', 'DA41-00814D', 'DA41-00814D_0459M.bin', '0459M', '4e96a1f2e3c6f39c9af2e61e2f07b69c12123546e4d93365457800e5f76adfc9'),
+  BoardProfile('00838A · French Door', 'DA41-00838A', '', 'French Door', ''),
 ];
 
 class FirmwareInfo {
@@ -228,6 +230,10 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _loadApkFirmware() {
     final profile = boardProfiles[selectedIndex];
+    if (profile.firmware.isEmpty) {
+      _message('The supplied APK contains no bundled firmware for this board profile.');
+      return;
+    }
     final bytes = apkFirmware[profile.firmware];
     if (bytes == null) {
       _message('Selected firmware is not present in the imported APK.');
@@ -256,10 +262,13 @@ class _DashboardPageState extends State<DashboardPage> {
     final validation = FirmwareValidator.validateSRecords(bytes);
     final digest = FirmwareValidator.sha256Hex(bytes);
     final expected = boardProfiles[selectedIndex];
-    final profileMatches = name == expected.firmware && digest == expected.sha256;
+    final profileMatches = expected.firmware.isNotEmpty &&
+        name == expected.firmware && digest == expected.sha256;
     final profileMessage = profileMatches
         ? 'Exact filename and SHA-256 match for selected APK profile.'
-        : 'PROFILE MISMATCH: expected ${expected.firmware} with SHA-256 ${expected.sha256}.';
+        : expected.firmware.isEmpty
+            ? 'No bundled firmware or verified hash exists for this board profile.'
+            : 'PROFILE MISMATCH: expected ${expected.firmware} with SHA-256 ${expected.sha256}.';
     SRecordImage? parsedImage;
     var preparedBlocks = 0;
     var protocolPlanReady = false;
@@ -316,7 +325,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               )
             : null,
-        title: const Text('Samsung PCB Programmer'),
+        title: const Text('Samsung Swap'),
         actions: [
           IconButton(
             tooltip: 'Scan USB',
@@ -408,7 +417,7 @@ class _DashboardPageState extends State<DashboardPage> {
               icon: Icons.folder_open_rounded,
               title: 'FIRMWARE CATALOGUE',
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Selected profile: ${selected.firmware}'),
+                Text('Selected profile: ${selected.firmware.isEmpty ? 'No firmware bundled in supplied APK' : selected.firmware}'),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: importingApk ? null : _importApk,
@@ -416,7 +425,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   label: Text(importingApk ? 'Reading APK…' : 'Import original Samsung Swap APK'),
                 ),
                 Text(apkMessage, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                if (apkFirmware.containsKey(selected.firmware))
+                if (selected.firmware.isNotEmpty && apkFirmware.containsKey(selected.firmware))
                   TextButton.icon(
                     onPressed: _loadApkFirmware,
                     icon: const Icon(Icons.download_done),
