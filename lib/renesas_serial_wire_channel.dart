@@ -40,6 +40,15 @@ class RenesasSerialWireChannel implements RenesasWireChannel {
   }
 
   @override
+  Future<Uint8List> readRawBytes(int count, Duration timeout) async {
+    final milliseconds = timeout.inMilliseconds;
+    if (milliseconds <= 0) {
+      throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
+    }
+    return transport.readExact(count, timeoutMs: milliseconds);
+  }
+
+  @override
   Future<Uint8List> readFrame(Duration timeout) async {
     final milliseconds = timeout.inMilliseconds;
     if (milliseconds <= 0) {
