@@ -26,8 +26,8 @@ void main() {
     });
 
     test('canonical firmware hash ignores CRLF/LF and final-newline differences', () {
-      final apkStyle = Uint8List.fromList(utf8.encode('S10500000102F7\\r\\nS9030000FC\\r\\n'));
-      final gitStyle = Uint8List.fromList(utf8.encode('S10500000102F7\\nS9030000FC'));
+      final apkStyle = Uint8List.fromList(utf8.encode('S10500000102F7\r\nS9030000FC\r\n'));
+      final gitStyle = Uint8List.fromList(utf8.encode('S10500000102F7\nS9030000FC'));
       expect(FirmwareValidator.sha256Hex(apkStyle), isNot(FirmwareValidator.sha256Hex(gitStyle)));
       expect(
         FirmwareValidator.canonicalSRecordSha256Hex(apkStyle),
