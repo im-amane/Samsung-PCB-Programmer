@@ -1,22 +1,20 @@
 # Samsung PCB Programmer
 
-Independent Android application project for research and development around Samsung refrigerator inverter PCB programming.
+Independent Android app project for Samsung refrigerator inverter PCB service research.
 
-## Current status
-This is an early, safe foundation:
-- Flutter dashboard and board-profile selection
-- Firmware catalogue metadata (no firmware binaries included yet)
-- USB OTG connection screen foundation
-- No third-party activation or license screen
-- Programming/write operations intentionally disabled until the target protocol, connector pinout, board revision, and firmware compatibility are independently verified
+## Download APK
+Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Programmer/actions/workflows/android.yml). Open the latest successful run and download **samsung-pcb-programmer-debug** under Artifacts.
 
-## Known research targets
-- DA41-00814A / DA92-00459A family
-- DA41-00814D / ISB-LC4_3050_V2 visual board family
-- uPD78F1201 MCU lead
+## Included in this build
+- No third-party account, activation, or license-verification flow
+- PCB profile selector for the listed DA41 board variants
+- USB OTG serial-device discovery and connection
+- Firmware file import, SHA-256 fingerprint, and basic Motorola S-record checksum checks
 
-## Build
-Install Flutter stable and Android SDK, then:
+## Not yet implemented
+This independent app does not yet perform MCU erase, flash write, target verification, or reboot. Those operations remain disabled until the exact PCB revision, connector pinout, electrical levels, bootloader protocol, and firmware compatibility are confirmed and tested on the actual hardware. The original APK's verification mechanism has not been modified or bypassed.
+
+## Build locally
 ```bash
 flutter pub get
 flutter run
@@ -24,7 +22,4 @@ flutter build apk --debug
 ```
 
 ## Safety
-Do not connect to a powered refrigerator PCB. Inverter capacitors can retain lethal voltage. Do not erase or write MCU flash until exact hardware and firmware compatibility are confirmed.
-
-## Firmware
-Firmware files are deliberately not committed at this stage. Add only files whose provenance, integrity, and exact board compatibility are documented.
+Disconnect the refrigerator PCB from mains power before any inspection. Inverter capacitors can retain dangerous voltage. Never connect or flash a live board.
