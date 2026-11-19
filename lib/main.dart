@@ -179,39 +179,70 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _connect(UsbDevice device) async {
+    UsbPort? candidate;
     try {
       await usbTransport?.close();
       usbTransport = null;
       await port?.close();
+      port = null;
+      connectedDevice = null;
       final oldNative = nativeTransport;
       nativeTransport = null;
       connectedNativePath = null;
       oldNative?.close();
-      final candidate = await device.create();
+
+      candidate = await device.create();
       if (candidate == null) {
-        if (mounted) setState(() => connectionMessage = 'No serial driver is available for this USB device.');
+        if (mounted) {
+          setState(() => connectionMessage =
+              'No serial driver is available for this USB device.');
+        }
         return;
       }
       final opened = await candidate.open();
       if (!opened) {
         await candidate.close();
-        if (mounted) setState(() => connectionMessage = 'USB permission or connection was denied.');
+        candidate = null;
+        if (mounted) {
+          setState(() => connectionMessage =
+              'USB permission or connection was denied.');
+        }
         return;
       }
-      // Open-only: do not guess a baud rate, toggle boot pins, or send MCU commands.
+
+      // Opening a port must not silently change line state or send MCU bytes.
       if (!mounted) {
         await candidate.close();
+        candidate = null;
         return;
       }
-      final usbLink = RenesasUsbSerialTransport(driver: AndroidUsbSerialPortDriver(candidate), lineProfile: _usbLineProfile, baudRate: usbBaudRate);
+      final usbLink = RenesasUsbSerialTransport(
+        driver: AndroidUsbSerialPortDriver(candidate),
+        lineProfile: _usbLineProfile,
+        baudRate: usbBaudRate,
+      );
       setState(() {
         port = candidate;
         usbTransport = usbLink;
         connectedDevice = device;
-        connectionMessage = 'USB serial port opened without sending data or changing serial parameters. Original protocol is not yet validated.';
+        connectionMessage =
+            'USB serial port opened without sending data or changing serial parameters.';
       });
+      candidate = null; // ownership transferred to DashboardPage
     } catch (e) {
-      if (mounted) setState(() => connectionMessage = 'USB connection failed: $e');
+      try {
+        await candidate?.close();
+      } catch (_) {
+        // Preserve the original connection error.
+      }
+      if (mounted) {
+        setState(() {
+          port = null;
+          usbTransport = null;
+          connectedDevice = null;
+          connectionMessage = 'USB connection failed: $e';
+        });
+      }
     }
   }
 

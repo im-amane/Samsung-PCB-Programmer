@@ -81,9 +81,13 @@ class RenesasUsbSerialTransport {
     required this.lineProfile,
     this.baudRate = Renesas78k0rProtocol.initialBaudRate,
     this.timeout = const Duration(milliseconds: 1500),
+    this.maxBufferedBytes = 64 * 1024,
   }) {
     if (baudRate <= 0) throw ArgumentError.value(baudRate, 'baudRate');
     if (timeout <= Duration.zero) throw ArgumentError.value(timeout, 'timeout');
+    if (maxBufferedBytes < 260) {
+      throw ArgumentError.value(maxBufferedBytes, 'maxBufferedBytes', 'Must hold one maximum-size protocol frame.');
+    }
     final stream = driver.inputStream;
     if (stream == null) {
       throw StateError('USB serial input stream is unavailable.');
@@ -108,6 +112,7 @@ class RenesasUsbSerialTransport {
     baudRate = value;
   }
   final Duration timeout;
+  final int maxBufferedBytes;
 
   late final StreamSubscription<Uint8List> _subscription;
   final List<int> _received = <int>[];
@@ -196,6 +201,13 @@ class RenesasUsbSerialTransport {
 
   void _onData(Uint8List data) {
     if (_closed || data.isEmpty) return;
+    if (_received.length + data.length > maxBufferedBytes) {
+      _streamError = StateError('USB receive buffer exceeded $maxBufferedBytes bytes.');
+      final waiter = _dataChanged;
+      _dataChanged = null;
+      if (waiter != null && !waiter.isCompleted) waiter.complete();
+      return;
+    }
     _received.addAll(data);
     final waiter = _dataChanged;
     _dataChanged = null;

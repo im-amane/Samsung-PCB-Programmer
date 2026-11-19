@@ -138,6 +138,22 @@ void main() {
       expect(driver.written, Renesas78k0rProtocol.siliconSignatureFrame());
     });
 
+    test('rejects an unbounded USB input burst instead of growing memory', () async {
+      final limited = RenesasUsbSerialTransport(
+        driver: driver,
+        lineProfile: const UsbTool0LineProfile(
+          transmitDtr: false,
+          transmitRts: false,
+          receiveDtr: false,
+          receiveRts: false,
+        ),
+        maxBufferedBytes: 260,
+      );
+      driver.controller.add(Uint8List(261));
+      await expectLater(limited.readExact(1), throwsStateError);
+      await limited.close();
+    });
+
     test('reports that USB plugin does not support hardware BREAK', () {
       expect(transport.supportsHardwareBreak, isFalse);
     });
