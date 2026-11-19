@@ -71,8 +71,8 @@ class UsbTool0LineProfile {
 
 /// Android USB serial transport for the Renesas 78K0R UART protocol.
 ///
-/// The usb_serial plugin exposes DTR and RTS but does not expose a UART BREAK
-/// control. This transport therefore does not pretend to support BREAK-based
+/// The usb_serial Dart API exposes DTR and RTS but does not expose its native
+/// driver's UART BREAK method. This transport therefore does not pretend to support BREAK-based
 /// boot entry. Target reset/FLMD0 sequencing must be provided by a separately
 /// verified adapter/controller before any programming operation is enabled.
 class RenesasUsbSerialTransport {
