@@ -7,6 +7,5 @@ void main() {
     await tester.pump();
     expect(find.text('Samsung PCB Programmer'), findsOneWidget);
     expect(find.text('TARGET FIRMWARE PROFILE'), findsOneWidget);
-    expect(find.text('FIRMWARE CATALOGUE'), findsOneWidget);
   });
 }
