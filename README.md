@@ -7,57 +7,47 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 
 ## Included in this build
 - No third-party account, activation, or license-verification flow in this independent app
-- Board selector including all five board labels recovered from the original AOT snapshot; only the three profiles with firmware assets in the supplied APK are marked firmware-backed
-- Android USB-host serial discovery/permission plus the same `flutter_libserialport` native serial backend recovered from the original APK (endpoint discovery/open/close; break, DTR/RTS and line configuration are not activated yet)
-- Import the original Samsung Swap APK locally and extract its three DA41 firmware assets plus four original image assets (app logo and board references) into app memory; the APK and extracted binaries are not uploaded or committed
-- Firmware file import, strict Motorola S-record structure/checksum/termination validation, address-indexed memory-map parsing, overlap/gap checks, and generic data-block preparation
-- Renesas 78K0R command/data frame codec with checksums, response validation, ACK/NACK handling, erase/program/verify/signature frame builders, and complete 16 KB frame-plan preparation
-- Testable protocol transaction engine for silicon-signature read and the full erase → program → verify sequence, including status checks after each frame and explicit destructive-erase confirmation
-- Native serial wire-channel adapter with configurable transmit/receive direction callbacks and 8N2/8N1 UART configuration; adapter-specific direction logic is intentionally not guessed
-- Exact SHA-256 fingerprint and selected-profile matching
-- Automated firmware-parser unit tests (`flutter test`), run before every CI APK build
-- Static-analysis findings from the supplied Samsung Swap APK
-- Offline firmware validator checks Motorola S-record counts/checksums and compares extracted file sizes and SHA-256 hashes with the APK reference values (`python3 tools/validate_firmware.py <files...>`)
-- Detailed APK findings and exact bundled firmware hashes in [docs/SAMSUNG_SWAP_APK_ANALYSIS.md](docs/SAMSUNG_SWAP_APK_ANALYSIS.md)
-- Existing protocol research notes in [docs/REVERSE_ENGINEERING_NOTES.md](docs/REVERSE_ENGINEERING_NOTES.md)
-- Renesas 78K0R/uPD78F1201 family research and remaining protocol gates in [docs/RENESAS_PROTOCOL_RESEARCH.md](docs/RENESAS_PROTOCOL_RESEARCH.md)
+- Board selector including five board labels recovered from the original AOT snapshot; only three profiles have firmware assets in the supplied APK
+- Android USB-host serial discovery/permission and native `flutter_libserialport` serial endpoint discovery/open/close
+- Import the original Samsung Swap APK locally and extract its three DA41 firmware assets plus four original image assets into app memory
+- Firmware file import, Motorola S-record structure/checksum/termination validation, address-indexed memory-map parsing, overlap/gap checks, and generic data-block preparation
+- Renesas 78K0R command/data frame codec with checksums, response validation, ACK/NACK handling, erase/program/verify/signature frame builders, and 16 KB frame-plan preparation
+- Testable protocol transaction engine for silicon-signature read and erase/program/verify sequencing
+- Native serial wire-channel abstraction with configurable transmit/receive callbacks and 8N2/8N1 UART configuration
+- Canonical S-record fingerprint matching that normalizes CRLF/LF and final-newline differences
+- Automated firmware and Flutter unit tests, run before each CI APK build
+- Static-analysis findings and hardware test checklist
 
-## Using the app
+## Original APK asset copying
 
-1. Build/install the Android APK from the latest successful GitHub Actions run.
-2. Select the DA41 firmware profile you want to inspect.
-3. Tap **Import original Samsung Swap APK** and choose your local `Samsung_Swap.apk`.
-4. The app extracts the three known firmware assets and four original image assets in memory. The original app logo and DA41-00814D board references are then displayed. Tap **Load selected firmware from APK**.
-5. Check the record/checksum result and the exact SHA-256 profile match.
-6. USB scan/connect currently opens the Android USB serial port or a native libserialport endpoint only. It does not assume a baud rate, change DTR/RTS/TOOL0/RESET/FLMD0, assert BREAK, or send flash commands.
+The original APK is a Flutter AOT release. Its Dart application source is compiled into native AOT libraries, so the original `.dart` source files cannot be copied out of this APK. The independent app must reproduce recovered behavior in its own source.
 
-The public repository does not redistribute the original APK or its proprietary firmware assets. Importing the APK on your own device avoids committing those binaries to a public repository.
-
-## Bench testing
-Follow [the bench test checklist](docs/BENCH_TEST_CHECKLIST.md) for the next controlled session. The app supports APK firmware extraction/validation and USB/native serial open/close diagnostics. The Renesas transaction engine and native serial channel are implemented and fake-channel tested, but they are not yet activated from the dashboard because the Samsung six-wire adapter's pinout, direction-control polarity, and target power/reset sequence have not been verified.
-
-## Conversion warning
-
-The original app labels 0459C and 0459G as Double Door and 0459M as Single Door. This is a firmware/profile label mapping, not proof that the 0459M image is compatible with every 0459C/0459G PCB. The app intentionally does not offer erase/write until compatibility and the target protocol are independently validated. See [the firmware comparison report](docs/DA41_FIRMWARE_COMPARISON.md).
-
-## Samsung Swap APK analysis
-The supplied APK is a Flutter AOT release. Its Dart source is not directly available as original source code. The app can now import the APK locally and extract the three bundled DA41 firmware assets in memory. Static analysis recovered board/workflow strings, engine and native serial transport clues, and activation-related strings. It did not recover a validated Samsung-board packet-level programming protocol or a verified universal license key. Public Renesas research confirms uPD78F1201 belongs to 78K0R/IB3, but the currently reviewed generic 78K0R programming notes do not establish the Samsung board's exact electrical setup or target command parameters.
-
-To extract the original APK's selected firmware and board images locally:
+To extract the three firmware files and four known images:
 ```bash
 python3 tools/extract_samsung_swap_assets.py /path/to/Samsung_Swap.apk
 ```
-The script writes the extracted files under `assets/original_apk/` and prints SHA-256 hashes. The APK itself is not committed to this repository.
 
-## Not yet implemented
-This independent app now has a testable Renesas 78K0R transaction engine for silicon-signature read and erase/program/verify sequencing, plus a native serial wire-channel abstraction. It still does not execute MCU erase, flash write, target verification, or reboot from the dashboard. The physical transport must support the documented single-wire TOOL0 UART behavior, asymmetric programmer/target stop-bit handling, and the board's RESET/FLMD0 control. The exact Samsung connector pinout, adapter electrical levels, stop-bit/direction handling, and 0459M cross-model compatibility must be confirmed before enabling the hardware operations. No programming command is sent by the current app. The original APK's verification mechanism is not modified or bypassed.
-
-## Build locally
+To copy **all Flutter assets** (firmware, every image, sounds, fonts, shaders, manifests and notices) while preserving their Flutter asset paths:
 ```bash
-flutter pub get
-flutter run
-flutter build apk --debug
+python3 tools/extract_samsung_swap_assets.py /path/to/Samsung_Swap.apk --all
 ```
 
-## Safety
+The `--all` option writes into `assets/original_apk/` and keeps the original tree under `assets/original_apk/` (for example, `assets/original_apk/assets/sounds/` and `assets/original_apk/FontManifest.json`). It extracts Flutter assets only; it does not copy compiled app libraries, DEX bytecode, the Android manifest, or resources.arsc. The APK itself is not committed.
+
+## Current implementation boundary
+
+The app currently performs USB/native serial discovery and open/close, imports firmware, validates S-records and profile fingerprints, and prepares a protocol plan. The Renesas transaction engine is fake-channel tested, but it is **not connected to the dashboard's physical USB session**. No erase, write, verify, boot-mode pulse or reboot command is sent to a PCB.
+
+The physical adapter's pinout, logic voltage, TOOL0 direction-control polarity, reset/FLMD0 sequence, serial timing and target compatibility remain unverified. Erase/write must stay disabled until those facts are confirmed from the exact adapter/PCB documentation and tested on safe bench hardware. Never guess pin wiring or firmware compatibility.
+
+## Bench safety
+
 Disconnect the refrigerator PCB from mains power before inspection. Inverter capacitors can retain dangerous voltage. Never connect or flash a live board. Use documented low-voltage programming points and qualified bench procedures.
+
+## Build locally
+
+```bash
+flutter pub get
+flutter test
+flutter build apk --debug
+```

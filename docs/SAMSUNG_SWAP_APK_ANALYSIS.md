@@ -7,7 +7,7 @@ Input: user-supplied `Samsung_Swap.apk` (54,540,630 bytes)
 
 - Flutter Android application; Dart business logic is AOT-compiled into `lib/<abi>/libapp.so`.
 - APK contains ARM64, ARMv7 and x86_64 Flutter runtimes and app libraries.
-- App assets are under `assets/flutter_assets/assets/`.
+- App assets are under `assets/flutter_assets/`.
 - A direct source-code copy is not available from this release APK. Reimplementation must follow recovered behavior and validated tests.
 
 ## Confirmed bundled firmware
@@ -30,7 +30,7 @@ Recovered strings identify these user-facing operations and states:
 - Programming workflow strings: mass erase, chunked write, verify, and reboot to normal RUN mode.
 - Relevant compiled symbols include `DA41Engine`, `SerialTransport`, `AndroidSerialTransport`, `eraseFlash`, `writeChunkFast`, `verify`.
 
-These strings prove that the APK contains labels/symbols for these operations. Renesas application note U19486EJ1V0AN independently documents the 78K0R/IB3 programmer frame protocol and explicitly lists uPD78F1201 as an applicable device. The independent repository now implements a tested frame codec based on that Renesas document. This does not prove the original APK uses every documented option identically or that the Samsung PCB wiring/transport is electrically compatible.
+These strings prove that the APK contains labels/symbols for these operations. Renesas application note U19486EJ1V0AN independently documents the 78K0R/IB3 programmer frame protocol and explicitly lists uPD78F1201 as an applicable device. The independent repository implements a tested frame codec based on that Renesas document. This does not prove the original APK uses every documented option identically or that the Samsung PCB wiring/transport is electrically compatible.
 
 ## Activation / licensing observations
 
@@ -38,30 +38,35 @@ Strings include `ActivationScreen`, `LicenseService`, `getDeviceCode`, `verifyTo
 
 `/data/data/com.skelectronics.samsung_swap/files/license.json`
 
-The APK also contains the message that a device code should be sent to S.K Electronics for a license key. This is evidence of an activation UI and local license storage. It does not establish a universal activation key or reveal a verified key-generation/validation algorithm. This project will use its own independent access policy and will not patch or bypass the original APK's activation checks.
+The APK also contains the message that a device code should be sent to S.K Electronics for a license key. This is evidence of an activation UI and local license storage. It does not establish a universal activation key or reveal a verified key-generation/validation algorithm. This project uses its own independent implementation and does not patch or bypass the original APK's activation checks.
 
 ## Network observation
 
 The APK's binary Android manifest and DEX were checked for the standard `INTERNET` and `ACCESS_NETWORK_STATE` permission strings; neither was found. No definite vendor API hostname was recovered from the app binary strings. This is evidence against an ordinary Android internet-backed activation flow in this build, but is not absolute proof that no external communication can occur through another component or a separate companion service.
 
-## Important implementation boundary
+## Asset inventory and extraction
 
-The existing repository currently provides USB serial discovery/open/disconnect, firmware import, raw SHA-256 and S-record checksum checks, canonical filename-plus-S-record fingerprint matching (normalizing CRLF/LF and final-newline differences), address-indexed memory-map parsing, and a tested Renesas 78K0R command/data frame codec. It can prepare a complete 16 KB erase/program/verify frame plan for an exact firmware match. The plan is not sent to hardware. Erase/write controls remain disabled until the exact PCB revision, connector pinout, logic voltage, single-wire TOOL0 adapter behavior, RESET/FLMD0 control and firmware compatibility are confirmed and tested on safe bench hardware.
-
-## Extracting the exact APK assets
-
-Run:
+The APK contains Flutter assets including the three firmware files, four board/application JPEGs, audio effects, Flutter font manifests, Material/Cupertino icon fonts, shader files and Flutter notices. To extract the three known firmware files and four known images:
 
 ```bash
 python3 tools/extract_samsung_swap_assets.py /path/to/Samsung_Swap.apk
 ```
 
-The script extracts the three firmware files and four board/application images into `assets/original_apk/`, prints SHA-256 hashes, and does not modify the APK.
+To extract every file under `assets/flutter_assets/` while preserving its relative path:
 
+```bash
+python3 tools/extract_samsung_swap_assets.py /path/to/Samsung_Swap.apk --all
+```
 
-## Additional native transport and firmware-map inspection
+The extractor intentionally does not extract `libapp.so`, native libraries, DEX bytecode, Android manifest or `resources.arsc` as if they were editable Dart source. Compiled AOT code is not a source-code archive.
 
-The ARM64 native serial library exports libserialport-style functions including `sp_start_break`, `sp_set_config_rts`, `sp_set_config_dtr`, serial read/write and port configuration functions. Together with the Dart strings for TOOL0, DTR and RTS pulse variants, this confirms the application has low-level serial-control capability. It still does not reveal the exact pulse durations, polarity selection for a specific board, target wiring, or safe electrical levels.
+## Important implementation boundary
+
+The current app provides USB serial discovery/open/disconnect, firmware import, raw SHA-256 and S-record checksum checks, canonical S-record fingerprint matching (normalizing CRLF/LF and final-newline differences), address-indexed memory-map parsing, and a tested Renesas 78K0R command/data frame codec. It can prepare a complete 16 KB erase/program/verify frame plan for an exact firmware match. The plan is not sent to hardware. The native serial transport can configure line settings and control BREAK/DTR/RTS, and the wire-channel abstraction accepts adapter-specific direction callbacks, but the dashboard does not connect these pieces to the physical USB session.
+
+Erase/write controls remain disabled until the exact PCB revision, connector pinout, logic voltage, single-wire TOOL0 adapter behavior, RESET/FLMD0 control and firmware compatibility are confirmed and tested on safe bench hardware.
+
+## Firmware map comparison
 
 All three firmware assets contain exactly 16,384 data bytes mapped from address `0x0000` through `0x3FFF`, matching the app's 16 KB MCU label:
 
@@ -73,41 +78,6 @@ All three firmware assets contain exactly 16,384 data bytes mapped from address 
 
 The 0459G and 0459M images cover the same address range but differ at 7,835 byte positions. The 0459C and 0459G images differ at 15,146 positions. These comparisons show the images are materially different firmware builds, not merely different filenames or S-record line layouts. They do **not** prove cross-model compatibility or that a Double Door PCB can be converted by writing the 0459M image.
 
-The APK's visible profile labels associate 0459C and 0459G with Double Door and 0459M with Single Door. No verified source in this APK establishes that 0459M is safe for a 0459C/0459G board. Treat that conversion as unverified until the exact PCB part number/revision, hardware population, sensor/relay mapping and service documentation are checked.
-
-## Current app behavior
-
-The Android app can import the original APK selected by the user, locate the three known firmware assets in its ZIP container, extract them into memory, validate S-record structure/checksums, compute raw SHA-256 and a canonical S-record fingerprint, and compare the exact filename/canonical fingerprint against the selected profile. The canonical fingerprint makes the APK's CRLF files match equivalent LF GitHub copies without changing the original raw checksum. The APK and extracted proprietary firmware are not committed to this public repository. USB serial discovery/open/disconnect remains open-only; no boot-mode pulses or flash commands are sent.
-
-
-## Renesas protocol reference
-
-Renesas application note U19486EJ1V0AN explicitly includes uPD78F1201 under 78K0R/IB3 and documents command framing, data framing, status codes and timing. See [RENESAS_PROTOCOL_RESEARCH.md](RENESAS_PROTOCOL_RESEARCH.md) for the sourced summary and the remaining hardware integration gates.
-
-
-## Additional UI strings recovered from the Flutter AOT snapshot
-
-A second string pass recovered these original product labels and screen/workflow captions:
-
-- App/product labels: `Samsung Swap`, `SAMSUNG SWAP EDITION`, `DA41 Refrigerator PCB Firmware Writer`, `Dedicated Inverter Refrigerator PCB Flasher`.
-- Board catalogue labels: `DA41-00755A (RT36 Inverter)`, `DA41-00814A (0459C Double Door)`, `DA41-00814D (0459G Double Door)`, `DA41-00814D (0459M Single Door)`, and `DA41-00838A (French Door)`.
-- Other category labels: `Samsung Inverter Double Door`, `Samsung Inverter Double Door Series A`, `Samsung Inverter Single Door`, `Samsung RT36 Inverter PCB`, and `Samsung Side-by-Side Inverter PCB`.
-- Main actions/states: `Select Samsung DA41 Board Model`, `Connecting to Target Board (DA41 Link)...`, `WRITE TO TARGET BOARD`, `ERASE CHIP`, `WRITE FIRMWARE (FLASH)`, `REBOOT / RUN`, `HARDWARE FLASHING ENGINE`, `DA41 FLASH ENGINE`, `YOUR DEVICE CODE:`, and `ACTIVATE_DEVICE:`.
-- Additional runtime messages include direct-mode bootloader attempt, USB permission denied, board 5V/OTG cable error, flash erase, writing, reboot-to-RUN, and failed erase/write states.
-
-These are strings recovered from the compiled snapshot. They do not by themselves recover widget layout, button callbacks, or the exact order/parameters of the original programming transactions. The independent app's selector now also shows the RT36 and French Door labels, but correctly marks them as having no firmware asset in this supplied APK. The three bundled DA41 images remain the only firmware-backed profiles.
-
-The APK import flow in the independent app now also extracts the four original image assets into memory. It displays the original app logo and the DA41-00814D board images after the user imports the APK; these image files are not permanently copied to the public repository.
-
-
 ## Native serial stack recovered from APK
 
-The APK's DEX registers both the Android USB serial driver stack (`com.hoho.android.usbserial`, including CDC ACM, CH340, CP210x and FTDI drivers) and the Flutter plugin `flutter_libserialport`. The APK bundles `libserialport.so` for ARM64, ARMv7 and x86_64. The ARM64 library exports the following relevant functions:
-
-- `sp_start_break` / `sp_end_break`
-- `sp_set_dtr` / `sp_set_rts`
-- `sp_set_baudrate` / `sp_set_stopbits` / `sp_set_bits` / `sp_set_parity`
-- `sp_blocking_read` / `sp_blocking_write` / `sp_nonblocking_read` / `sp_nonblocking_write`
-- `sp_open` / `sp_close` / `sp_list_ports`
-
-This confirms that the original application has both Android USB-serial support and a native serial-control layer capable of break and modem-control operations. The independent app now includes the same two Flutter dependency families: `usb_serial` for Android USB host enumeration/permission and `flutter_libserialport` for native serial endpoint enumeration/opening and the lower-level serial capabilities. The app currently performs discovery/open/close only; it does not yet configure line settings, pulse DTR/RTS, assert BREAK, or transmit programming data.
+The APK registers Android USB serial drivers and the Flutter plugin `flutter_libserialport`, and bundles `libserialport.so` for ARM64, ARMv7 and x86_64. The native library exports serial read/write, port open/close, BREAK, DTR/RTS and serial configuration functions. This confirms low-level serial-control capability in the APK, but not the exact Samsung adapter pinout, pulse durations, polarity, target wiring or safe electrical levels.
