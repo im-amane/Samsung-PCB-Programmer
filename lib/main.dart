@@ -7,6 +7,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:usb_serial/usb_serial.dart';
 
+import 'firmware_validator.dart';
+
 void main() => runApp(const SamsungPcbProgrammerApp());
 
 class SamsungPcbProgrammerApp extends StatelessWidget {
@@ -126,13 +128,7 @@ class _DashboardPageState extends State<DashboardPage> {
       setState(() => connectionMessage = 'USB permission or connection was denied.');
       return;
     }
-    // Open-only: do not toggle boot pins or send unverified MCU commands.
-    await candidate.setPortParameters(
-      9600,
-      UsbPort.DATABITS_8,
-      UsbPort.STOPBITS_1,
-      UsbPort.PARITY_NONE,
-    );
+    // Open-only: do not guess a baud rate, toggle boot pins, or send MCU commands.
     if (!mounted) {
       await candidate.close();
       return;
@@ -140,7 +136,7 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() {
       port = candidate;
       connectedDevice = device;
-      connectionMessage = 'USB serial port opened. Original protocol is not yet validated.';
+      connectionMessage = 'USB serial port opened without sending data or changing serial parameters. Original protocol is not yet validated.';
     });
   }
 
@@ -229,9 +225,8 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   void _inspectFirmware(String name, Uint8List bytes) {
-    final textData = utf8.decode(bytes, allowMalformed: true);
-    final validation = _validateSRecords(textData);
-    final digest = sha256.convert(bytes).toString();
+    final validation = FirmwareValidator.validateSRecords(bytes);
+    final digest = FirmwareValidator.sha256Hex(bytes);
     final expected = boardProfiles[selectedIndex];
     final profileMatches = name == expected.firmware && digest == expected.sha256;
     final profileMessage = profileMatches
@@ -243,41 +238,14 @@ class _DashboardPageState extends State<DashboardPage> {
         name: name,
         size: bytes.length,
         sha256: digest,
-        validSRecord: validation.$1,
-        records: validation.$2,
+        validSRecord: validation.valid,
+        records: validation.totalRecords,
         profileMatches: profileMatches,
-        message: '${validation.$3} ${profileMessage}',
+        message: '${validation.message} ${profileMessage}',
       );
     });
   }
 
-  (bool, int, String) _validateSRecords(String content) {
-    var records = 0;
-    for (final raw in const LineSplitter().convert(content)) {
-      final line = raw.trim();
-      if (line.isEmpty) continue;
-      if (line.length < 4 || !RegExp(r'^S[0-9]').hasMatch(line)) {
-        return (false, records, 'Invalid S-record line detected.');
-      }
-      final hex = line.substring(2);
-      if (hex.length.isOdd || !RegExp(r'^[0-9A-Fa-f]+$').hasMatch(hex)) {
-        return (false, records, 'Malformed hexadecimal data in S-record.');
-      }
-      final data = <int>[];
-      for (var i = 0; i < hex.length; i += 2) {
-        data.add(int.parse(hex.substring(i, i + 2), radix: 16));
-      }
-      if (data.isEmpty || data.first != data.length - 1) {
-        return (false, records, 'S-record byte count does not match line length.');
-      }
-      final sum = data.fold<int>(0, (a, b) => a + b) & 0xff;
-      if (sum != 0xff) return (false, records, 'S-record checksum mismatch.');
-      records++;
-    }
-    return records > 0
-        ? (true, records, 'S-record count and checksums are valid.')
-        : (false, 0, 'No S-record data found.');
-  }
 
   void _message(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
@@ -386,7 +354,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   SelectableText('SHA-256: ${firmware!.sha256}'),
                   const SizedBox(height: 6),
                   Text(firmware!.message),
-                  Text('${firmware!.records} S-records · ${firmware!.validSRecord ? "Checksum OK" : "Invalid / not S-record"}'),
+                  Text('${firmware!.records} S-records · ${firmware!.validSRecord ? "Structure and checksums OK" : "Invalid / not S-record"}'),
                   Text('Profile match: ${firmware!.profileMatches ? "YES" : "NO"}'),
                 ],
               ]),
@@ -404,7 +372,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   Text('Boot-control clues: TOOL0, DTR, RTS and break pulses.'),
                   Text('Protocol clues: silicon signature 0xC0 and mass-erase status 0x20.'),
                   SizedBox(height: 8),
-                  Text('These are static-analysis clues only. Exact packet framing, baud rate, timing, voltage levels and board compatibility are not confirmed.'),
+                  Text('These are static-analysis clues only. Exact packet framing, baud rate, timing, voltage levels and board compatibility are not confirmed. USB open does not configure a guessed baud rate or send data.'),
                 ],
               ),
             ),
