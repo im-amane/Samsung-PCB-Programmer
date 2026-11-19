@@ -1,7 +1,7 @@
 name: samsung_pcb_programmer
 description: Independent Android USB firmware utility for Samsung refrigerator inverter PCB research.
 publish_to: "none"
-version: 0.2.0+2
+version: 0.3.0+3
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
