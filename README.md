@@ -16,6 +16,21 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 - Detailed APK findings and exact bundled firmware hashes in [docs/SAMSUNG_SWAP_APK_ANALYSIS.md](docs/SAMSUNG_SWAP_APK_ANALYSIS.md)
 - Existing protocol research notes in [docs/REVERSE_ENGINEERING_NOTES.md](docs/REVERSE_ENGINEERING_NOTES.md)
 
+## Using the app
+
+1. Build/install the Android APK from the latest successful GitHub Actions run.
+2. Select the DA41 firmware profile you want to inspect.
+3. Tap **Import original Samsung Swap APK** and choose your local `Samsung_Swap.apk`.
+4. The app extracts the three known firmware assets in memory. Tap **Load selected firmware from APK**.
+5. Check the record/checksum result and the exact SHA-256 profile match.
+6. USB scan/connect currently opens the serial port only. It does not enter bootloader mode or send flash commands.
+
+The public repository does not redistribute the original APK or its proprietary firmware assets. Importing the APK on your own device avoids committing those binaries to a public repository.
+
+## Conversion warning
+
+The original app labels 0459C and 0459G as Double Door and 0459M as Single Door. This is a firmware/profile label mapping, not proof that the 0459M image is compatible with every 0459C/0459G PCB. The app intentionally does not offer erase/write until compatibility and the target protocol are independently validated. See [the firmware comparison report](docs/DA41_FIRMWARE_COMPARISON.md).
+
 ## Samsung Swap APK analysis
 The supplied APK is a Flutter AOT release. Its Dart source is not directly available as original source code. The app can now import the APK locally and extract the three bundled DA41 firmware assets in memory. Static analysis recovered board/workflow strings, engine and native serial transport clues, and activation-related strings. It did not recover a validated packet-level programming protocol or a verified universal license key.
 
