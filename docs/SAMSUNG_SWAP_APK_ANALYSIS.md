@@ -12,11 +12,11 @@ Input: user-supplied `Samsung_Swap.apk` (54,540,630 bytes)
 
 ## Confirmed bundled firmware
 
-| APK asset | Size | SHA-256 |
-|---|---:|---|
-| `firmwares/DA41-00814A.mot` | 38,924 | `6d51f294e21cdbb2efa207f63fff41c69468eba86199d419578af9a98cac5f02` |
-| `firmwares/DA41-00814D_0459G.mot` | 38,924 | `fc91858a2423324184ef708341e4a6929dfa8b39f53f7c479cbf152bec589873` |
-| `firmwares/DA41-00814D_0459M.bin` | 49,214 | `4e96a1f2e3c6f39c9af2e61e2f07b69c12123546e4d93365457800e5f76adfc9` |
+| APK asset | Size | Original APK SHA-256 | Canonical S-record SHA-256 (LF + final newline) |
+|---|---:|---|---|
+| `firmwares/DA41-00814A.mot` | 38,924 | `6d51f294e21cdbb2efa207f63fff41c69468eba86199d419578af9a98cac5f02` | `674a4e4c632ee167849269e05341d133243a310ab8661c712cbaa179f813e5dc` |
+| `firmwares/DA41-00814D_0459G.mot` | 38,924 | `fc91858a2423324184ef708341e4a6929dfa8b39f53f7c479cbf152bec589873` | `d6e23a11b200a61ba5943a760bc9b2fdd0898842b13fad9290a554d5ed128860` |
+| `firmwares/DA41-00814D_0459M.bin` | 49,214 | `4e96a1f2e3c6f39c9af2e61e2f07b69c12123546e4d93365457800e5f76adfc9` | `ee709d6f843c429f726953ad7a1550819d8e43bf6d9e6604fd75cbd72d317499` |
 
 The third file begins with an S-record text header despite its `.bin` extension. Do not infer format solely from extension. All three extracted files were independently checked: 513, 513 and 1,026 S-records respectively; every record count and checksum passed, and all byte sizes and SHA-256 hashes matched the APK reference values. Run `python3 tools/validate_firmware.py <files...>` to repeat these checks.
 
@@ -46,7 +46,7 @@ The APK's binary Android manifest and DEX were checked for the standard `INTERNE
 
 ## Important implementation boundary
 
-The existing repository currently provides USB serial discovery/open/disconnect, firmware import, SHA-256 and S-record checksum checks, exact filename-plus-SHA-256 matching, address-indexed memory-map parsing, and a tested Renesas 78K0R command/data frame codec. It can prepare a complete 16 KB erase/program/verify frame plan for an exact firmware match. The plan is not sent to hardware. Erase/write controls remain disabled until the exact PCB revision, connector pinout, logic voltage, single-wire TOOL0 adapter behavior, RESET/FLMD0 control and firmware compatibility are confirmed and tested on safe bench hardware.
+The existing repository currently provides USB serial discovery/open/disconnect, firmware import, raw SHA-256 and S-record checksum checks, canonical filename-plus-S-record fingerprint matching (normalizing CRLF/LF and final-newline differences), address-indexed memory-map parsing, and a tested Renesas 78K0R command/data frame codec. It can prepare a complete 16 KB erase/program/verify frame plan for an exact firmware match. The plan is not sent to hardware. Erase/write controls remain disabled until the exact PCB revision, connector pinout, logic voltage, single-wire TOOL0 adapter behavior, RESET/FLMD0 control and firmware compatibility are confirmed and tested on safe bench hardware.
 
 ## Extracting the exact APK assets
 
@@ -77,7 +77,7 @@ The APK's visible profile labels associate 0459C and 0459G with Double Door and 
 
 ## Current app behavior
 
-The Android app can import the original APK selected by the user, locate the three known firmware assets in its ZIP container, extract them into memory, validate S-record structure/checksums, compute SHA-256 and compare the exact filename/hash against the selected profile. The APK and extracted proprietary firmware are not committed to this public repository. USB serial discovery/open/disconnect remains open-only; no boot-mode pulses or flash commands are sent.
+The Android app can import the original APK selected by the user, locate the three known firmware assets in its ZIP container, extract them into memory, validate S-record structure/checksums, compute raw SHA-256 and a canonical S-record fingerprint, and compare the exact filename/canonical fingerprint against the selected profile. The canonical fingerprint makes the APK's CRLF files match equivalent LF GitHub copies without changing the original raw checksum. The APK and extracted proprietary firmware are not committed to this public repository. USB serial discovery/open/disconnect remains open-only; no boot-mode pulses or flash commands are sent.
 
 
 ## Renesas protocol reference
