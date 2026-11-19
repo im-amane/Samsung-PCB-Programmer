@@ -12,30 +12,19 @@ class ExtractSamsungSwapAssetsTest(unittest.TestCase):
         self.root = pathlib.Path(self.temp.name)
         self.apk = self.root / "fixture.apk"
         with zipfile.ZipFile(self.apk, "w") as archive:
-            archive.writestr(
-                "assets/flutter_assets/assets/firmwares/DA41-00814A.mot",
-                b"firmware-a",
-            )
-            archive.writestr(
-                "assets/flutter_assets/assets/firmwares/DA41-00814D_0459G.mot",
-                b"firmware-g",
-            )
-            archive.writestr(
-                "assets/flutter_assets/assets/firmwares/DA41-00814D_0459M.bin",
-                b"firmware-m",
-            )
-            archive.writestr(
-                "assets/flutter_assets/assets/images/app_logo.jpg",
-                b"image-logo",
-            )
-            archive.writestr(
-                "assets/flutter_assets/FontManifest.json",
-                b"{}",
-            )
-            archive.writestr(
-                "assets/flutter_assets/assets/sounds/success.mp3",
-                b"sound",
-            )
+            fixtures = {
+                "assets/flutter_assets/assets/firmwares/DA41-00814A.mot": b"firmware-a",
+                "assets/flutter_assets/assets/firmwares/DA41-00814D_0459G.mot": b"firmware-g",
+                "assets/flutter_assets/assets/firmwares/DA41-00814D_0459M.bin": b"firmware-m",
+                "assets/flutter_assets/assets/images/app_logo.jpg": b"image-logo",
+                "assets/flutter_assets/assets/images/samsung_da41_00814d.jpg": b"image-board",
+                "assets/flutter_assets/assets/images/samsung_da41_00814d_h.jpg": b"image-board-h",
+                "assets/flutter_assets/assets/images/samsung_da41_00863a.jpg": b"image-other",
+                "assets/flutter_assets/FontManifest.json": b"{}",
+                "assets/flutter_assets/assets/sounds/success.mp3": b"sound",
+            }
+            for name, data in fixtures.items():
+                archive.writestr(name, data)
             archive.writestr("classes.dex", b"not-a-flutter-asset")
 
     def tearDown(self):
@@ -44,10 +33,10 @@ class ExtractSamsungSwapAssetsTest(unittest.TestCase):
     def test_default_extracts_known_firmware_and_images(self):
         output = self.root / "default"
         extracted = extract_apk_assets(self.apk, output)
-        self.assertEqual(len(extracted), 4)
-        self.assertTrue(
-            (output / "firmwares/DA41-00814A.mot").read_bytes()
-            == b"firmware-a"
+        self.assertEqual(len(extracted), 7)
+        self.assertEqual(
+            (output / "firmwares/DA41-00814A.mot").read_bytes(),
+            b"firmware-a",
         )
         self.assertTrue((output / "images/app_logo.jpg").is_file())
         self.assertFalse((output / "FontManifest.json").exists())
@@ -55,7 +44,7 @@ class ExtractSamsungSwapAssetsTest(unittest.TestCase):
     def test_all_preserves_flutter_asset_tree_and_skips_dex(self):
         output = self.root / "all"
         extracted = extract_apk_assets(self.apk, output, include_all=True)
-        self.assertEqual(len(extracted), 6)
+        self.assertEqual(len(extracted), 9)
         self.assertEqual(
             (output / "assets/firmwares/DA41-00814A.mot").read_bytes(),
             b"firmware-a",
