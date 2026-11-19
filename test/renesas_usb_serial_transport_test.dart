@@ -58,6 +58,11 @@ class FakeUsbDriver implements RenesasUsbPortDriver {
     }
   }
 
+  @override
+  Future<void> setBreak(bool asserted) async {
+    calls.add('break:$asserted');
+  }
+
   Future<void> dispose() => controller.close();
 }
 
