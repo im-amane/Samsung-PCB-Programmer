@@ -18,7 +18,7 @@ Input: user-supplied `Samsung_Swap.apk` (54,540,630 bytes)
 | `firmwares/DA41-00814D_0459G.mot` | 38,924 | `fc91858a2423324184ef708341e4a6929dfa8b39f53f7c479cbf152bec589873` |
 | `firmwares/DA41-00814D_0459M.bin` | 49,214 | `4e96a1f2e3c6f39c9af2e61e2f07b69c12123546e4d93365457800e5f76adfc9` |
 
-The third file begins with an S-record text header despite its `.bin` extension. Do not infer format solely from extension.
+The third file begins with an S-record text header despite its `.bin` extension. Do not infer format solely from extension. All three extracted files were independently checked: 513, 513 and 1,026 S-records respectively; every record count and checksum passed, and all byte sizes and SHA-256 hashes matched the APK reference values. Run `python3 tools/validate_firmware.py <files...>` to repeat these checks.
 
 ## Confirmed UI / workflow strings
 
@@ -46,7 +46,7 @@ The APK's binary Android manifest and DEX were checked for the standard `INTERNE
 
 ## Important implementation boundary
 
-The existing repository currently provides USB serial discovery/open, firmware import, SHA-256 and S-record checksum checks. The recovered APK has stronger programming workflow labels, but the actual target protocol is not validated in this repository. Erase/write controls must remain disabled until the exact PCB revision, connector pinout, logic voltage, programmer transport and command framing are established from reliable evidence and tested on safe bench hardware.
+The existing repository currently provides USB serial discovery/open/disconnect, firmware import, SHA-256 and S-record checksum checks, and exact filename-plus-SHA-256 matching against the selected APK board profile. The recovered APK has stronger programming workflow labels, but the actual target protocol is not validated in this repository. Erase/write controls must remain disabled until the exact PCB revision, connector pinout, logic voltage, programmer transport and command framing are established from reliable evidence and tested on safe bench hardware.
 
 ## Extracting the exact APK assets
 
