@@ -84,7 +84,7 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  int selectedIndex = 0;
+  int selectedIndex = 1;
   List<UsbDevice> devices = [];
   UsbPort? port;
   libserial.SerialPort? nativePort;
@@ -144,6 +144,11 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _connect(UsbDevice device) async {
     try {
       await port?.close();
+      final oldNative = nativePort;
+      nativePort = null;
+      connectedNativePath = null;
+      oldNative?.close();
+      oldNative?.dispose();
       final candidate = await device.create();
       if (candidate == null) {
         if (mounted) setState(() => connectionMessage = 'No serial driver is available for this USB device.');
