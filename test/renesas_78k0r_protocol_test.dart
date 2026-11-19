@@ -62,5 +62,18 @@ void main() {
       final response = Renesas78k0rProtocol.decodeResponseFrame([0x02, 0x01, 0x15, 0xea, 0x03]);
       expect(() => Renesas78k0rProtocol.requireAck(response), throwsStateError);
     });
+
+    test('requires both programming data statuses to be ACK', () {
+      final response = Renesas78k0rProtocol.decodeResponseFrame([0x02, 0x02, 0x06, 0x06, 0xf2, 0x03]);
+      expect(
+        () => Renesas78k0rProtocol.requireStatuses(response, expectedCount: 2, operation: 'program data'),
+        returnsNormally,
+      );
+      final bad = Renesas78k0rProtocol.decodeResponseFrame([0x02, 0x02, 0x06, 0x0f, 0xe9, 0x03]);
+      expect(
+        () => Renesas78k0rProtocol.requireStatuses(bad, expectedCount: 2, operation: 'program data'),
+        throwsStateError,
+      );
+    });
   });
 }
