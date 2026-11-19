@@ -60,7 +60,7 @@ class RenesasProgramProgress {
   final int totalFrames;
 
   double get fraction =>
-      totalFrames == 0 ? 1 : (completedFrames / totalFrames).clamp(0, 1);
+      totalFrames == 0 ? 1.0 : (completedFrames / totalFrames).clamp(0, 1).toDouble();
 }
 
 /// Executes documented 78K0R command/data transactions after the target has
