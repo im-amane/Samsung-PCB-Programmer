@@ -35,6 +35,12 @@ Uint8List _statusFrame(List<int> statuses) {
   return Uint8List.fromList([0x02, length, ...statuses, sum, 0x03]);
 }
 
+Uint8List _dataFrame(List<int> data) {
+  final length = data.length == 256 ? 0 : data.length;
+  final sum = (-(length + data.fold<int>(0, (a, b) => a + b))) & 0xff;
+  return Uint8List.fromList([0x02, length, ...data, sum, 0x03]);
+}
+
 String _s3Record(int address, List<int> data) {
   final bytes = <int>[
     5 + data.length,
@@ -64,9 +70,14 @@ Uint8List _full16kS3Image() {
 void main() {
   group('RenesasProtocolSession', () {
     test('reads signature only after ACK and validates response checksum', () async {
+      final signature = <int>[
+        0x10, 0x7f, 0x04, 0xdc, 0xfd, 0xfd, 0xff, 0x3f, 0x00,
+        ...'D78F1201  '.codeUnits,
+        0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff,
+      ];
       final channel = _FakeChannel([
         _statusFrame([0x06]),
-        _statusFrame([0x12, 0x34]),
+        _dataFrame(signature),
       ]);
       final session = RenesasProtocolSession(
         channel: channel,
@@ -77,7 +88,7 @@ void main() {
         ),
       );
 
-      expect(await session.readSiliconSignature(), [0x12, 0x34]);
+      expect(await session.readSiliconSignature(), signature);
       expect(channel.writes, hasLength(1));
       expect(channel.writes.single, [0x01, 0x01, 0xc0, 0x3f, 0x03]);
       expect(channel.txCount, 1);
@@ -90,6 +101,7 @@ void main() {
         _statusFrame([0x06]),
         _statusFrame([0x06]),
         ...List<Uint8List>.generate(64, (_) => _statusFrame([0x06, 0x06])),
+        _statusFrame([0x06]), // final automatic internal-verify result
         _statusFrame([0x06]),
         ...List<Uint8List>.generate(64, (_) => _statusFrame([0x06, 0x06])),
       ];
