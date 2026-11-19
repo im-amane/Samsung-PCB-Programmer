@@ -165,12 +165,24 @@ class Renesas78k0rProtocol {
   }
 
   static void requireAck(RenesasResponseFrame response, {String operation = 'command'}) {
-    if (response.data.length != 1) {
-      throw FormatException('Unexpected status length for $operation.');
+    requireStatuses(response, expectedCount: 1, operation: operation);
+  }
+
+  /// Programming data-frame responses contain two status bytes: reception
+  /// check (ST1) and flash write result (ST2). Both must be ACK.
+  static void requireStatuses(
+    RenesasResponseFrame response, {
+    required int expectedCount,
+    String operation = 'command',
+  }) {
+    if (response.data.length != expectedCount) {
+      throw FormatException('Unexpected status length for $operation: expected $expectedCount, received ${response.data.length}.');
     }
-    final status = response.data.single;
-    if (status != ack) {
-      throw StateError('78K0R $operation failed with status 0x${status.toRadixString(16).padLeft(2, '0').toUpperCase()}.');
+    for (var index = 0; index < response.data.length; index++) {
+      final status = response.data[index];
+      if (status != ack) {
+        throw StateError('78K0R $operation status ${index + 1} failed with 0x${status.toRadixString(16).padLeft(2, '0').toUpperCase()}.');
+      }
     }
   }
 }
