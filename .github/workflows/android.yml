@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate bundled firmware assets
+        run: python3 tools/validate_firmware.py assets/firmwares/DA41-00814A.mot assets/firmwares/DA41-00814D_0459G.mot assets/firmwares/DA41-00814D_0459M.bin
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -35,8 +37,8 @@ jobs:
                   continue
               for path in root.rglob("build.gradle*"):
                   content = path.read_text()
-                  content = re.sub(r"compileSdkVersion\\s+\\d+", "compileSdkVersion 36", content)
-                  content = re.sub(r"compileSdk\\s*=\\s*\\d+", "compileSdk = 36", content)
+                  content = re.sub(r"compileSdkVersion\s+\d+", "compileSdkVersion 36", content)
+                  content = re.sub(r"compileSdk\s*=\s*\d+", "compileSdk = 36", content)
                   content = content.replace("compileSdkVersion flutter.compileSdkVersion", "compileSdkVersion 36")
                   content = content.replace("compileSdk = flutter.compileSdkVersion", "compileSdk = 36")
                   path.write_text(content)
