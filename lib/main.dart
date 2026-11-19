@@ -1,74 +1,203 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
-void main() {
-  runApp(const SamsungPcbProgrammerApp());
-}
+import 'package:crypto/crypto.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:usb_serial/usb_serial.dart';
+
+void main() => runApp(const SamsungPcbProgrammerApp());
 
 class SamsungPcbProgrammerApp extends StatelessWidget {
   const SamsungPcbProgrammerApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Samsung PCB Programmer',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF176B5B),
-          brightness: Brightness.dark,
+  Widget build(BuildContext context) => MaterialApp(
+        title: 'Samsung PCB Programmer',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF176B5B),
+            brightness: Brightness.dark,
+          ),
+          useMaterial3: true,
+          scaffoldBackgroundColor: const Color(0xFF101816),
         ),
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFF101816),
-      ),
-      home: const DashboardPage(),
-    );
-  }
+        home: const DashboardPage(),
+      );
 }
 
 class BoardProfile {
-  const BoardProfile({
-    required this.name,
-    required this.board,
-    required this.firmware,
-    required this.status,
-  });
-
+  const BoardProfile(this.name, this.board, this.firmware, this.revision);
   final String name;
   final String board;
   final String firmware;
-  final String status;
+  final String revision;
 }
 
 const boardProfiles = <BoardProfile>[
-  BoardProfile(
-    name: '0459C · Double Door',
-    board: 'DA41-00814A',
-    firmware: 'DA41-00814A.mot',
-    status: 'Reference only',
-  ),
-  BoardProfile(
-    name: '0459G · Double Door',
-    board: 'DA41-00814D',
-    firmware: 'DA41-00814D_0459G.mot',
-    status: 'Reference only',
-  ),
-  BoardProfile(
-    name: '0459M · Single Door',
-    board: 'DA41-00814D',
-    firmware: 'DA41-00814D_0459M.bin',
-    status: 'Reference only',
-  ),
+  BoardProfile('0459C · Double Door', 'DA41-00814A', 'DA41-00814A.mot', '0459C'),
+  BoardProfile('0459G · Double Door', 'DA41-00814D', 'DA41-00814D_0459G.mot', '0459G'),
+  BoardProfile('0459M · Single Door', 'DA41-00814D', 'DA41-00814D_0459M.bin', '0459M'),
 ];
+
+class FirmwareInfo {
+  const FirmwareInfo({
+    required this.name,
+    required this.size,
+    required this.sha256,
+    required this.isSRecord,
+    required this.validSRecord,
+    required this.records,
+    required this.message,
+  });
+  final String name;
+  final int size;
+  final String sha256;
+  final bool isSRecord;
+  final bool validSRecord;
+  final int records;
+  final String message;
+}
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
-
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
 class _DashboardPageState extends State<DashboardPage> {
   int selectedIndex = 0;
+  List<UsbDevice> devices = [];
+  UsbPort? port;
+  UsbDevice? connectedDevice;
+  FirmwareInfo? firmware;
+  bool scanning = false;
+  String connectionMessage = 'Connect a USB-C OTG adapter to detect the interface.';
+
+  @override
+  void initState() {
+    super.initState();
+    _scanUsb();
+  }
+
+  @override
+  void dispose() {
+    port?.close();
+    super.dispose();
+  }
+
+  Future<void> _scanUsb() async {
+    setState(() => scanning = true);
+    try {
+      final found = await UsbSerial.listDevices();
+      if (!mounted) return;
+      setState(() {
+        devices = found;
+        scanning = false;
+        connectionMessage = found.isEmpty
+            ? 'No USB serial interface detected.'
+            : '${found.length} USB device(s) detected. Select the correct interface.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        scanning = false;
+        connectionMessage = 'USB scan failed: $e';
+      });
+    }
+  }
+
+  Future<void> _connect(UsbDevice device) async {
+    await port?.close();
+    final candidate = await UsbSerial.createFromDevice(device);
+    if (candidate == null) {
+      setState(() => connectionMessage = 'No serial driver is available for this USB device.');
+      return;
+    }
+    final opened = await candidate.open();
+    if (!opened) {
+      setState(() => connectionMessage = 'USB permission or connection was denied.');
+      return;
+    }
+    // Open the serial interface only. No bootloader or flash commands are sent.
+    await candidate.setPortParameters(
+      9600,
+      UsbPort.DATABITS_8,
+      UsbPort.STOPBITS_1,
+      UsbPort.PARITY_NONE,
+    );
+    if (!mounted) {
+      await candidate.close();
+      return;
+    }
+    setState(() {
+      port = candidate;
+      connectedDevice = device;
+      connectionMessage = 'USB serial port opened. Programming protocol is not yet validated.';
+    });
+  }
+
+  Future<void> _importFirmware() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['mot', 'srec', 's19', 's28', 's37', 'bin', 'hex'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.single;
+    final bytes = file.bytes;
+    if (bytes == null) {
+      _message('Could not read the selected file.');
+      return;
+    }
+    final textData = utf8.decode(bytes, allowMalformed: true);
+    final looksSRecord = textData.trimLeft().startsWith('S');
+    final validation = looksSRecord ? _validateSRecords(textData) : (false, 0, 'Binary/HEX format: imported and hashed; format-specific validation is pending.');
+    setState(() {
+      firmware = FirmwareInfo(
+        name: file.name,
+        size: bytes.length,
+        sha256: sha256.convert(bytes).toString(),
+        isSRecord: looksSRecord,
+        validSRecord: validation.$1,
+        records: validation.$2,
+        message: validation.$3,
+      );
+    });
+  }
+
+  (bool, int, String) _validateSRecords(String content) {
+    var records = 0;
+    for (final raw in const LineSplitter().convert(content)) {
+      final line = raw.trim();
+      if (line.isEmpty) continue;
+      if (line.length < 4 || !RegExp(r'^S[0-9]').hasMatch(line)) {
+        return (false, records, 'Invalid S-record line detected.');
+      }
+      final hex = line.substring(2);
+      if (hex.length.isOdd || !RegExp(r'^[0-9A-Fa-f]+$').hasMatch(hex)) {
+        return (false, records, 'Malformed hexadecimal data in S-record.');
+      }
+      final data = <int>[];
+      for (var i = 0; i < hex.length; i += 2) {
+        data.add(int.parse(hex.substring(i, i + 2), radix: 16));
+      }
+      if (data.isEmpty || data.first != data.length - 1) {
+        return (false, records, 'S-record byte count does not match line length.');
+      }
+      final sum = data.fold<int>(0, (a, b) => a + b) & 0xff;
+      if (sum != 0xff) return (false, records, 'S-record checksum mismatch.');
+      records++;
+    }
+    return records > 0
+        ? (true, records, 'S-record count and checksums are valid.')
+        : (false, 0, 'No S-record data found.');
+  }
+
+  void _message(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,111 +207,89 @@ class _DashboardPageState extends State<DashboardPage> {
         title: const Text('Samsung PCB Programmer'),
         actions: [
           IconButton(
-            tooltip: 'Connection information',
-            onPressed: _showConnectionInfo,
-            icon: const Icon(Icons.usb_rounded),
+            tooltip: 'Scan USB',
+            onPressed: scanning ? null : _scanUsb,
+            icon: const Icon(Icons.refresh_rounded),
           ),
         ],
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(16),
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.memory_rounded, size: 28),
-                        SizedBox(width: 10),
-                        Text(
-                          'PROGRAMMER STATUS',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Not connected',
-                      style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Connect the USB-C OTG adapter to begin device detection.',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 14),
-                    FilledButton.icon(
-                      onPressed: _showConnectionInfo,
-                      icon: const Icon(Icons.usb),
-                      label: const Text('USB connection setup'),
-                    ),
-                  ],
+            _sectionCard(
+              icon: Icons.memory_rounded,
+              title: 'PROGRAMMER STATUS',
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(port == null ? 'Not connected' : 'USB connected',
+                    style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Text(connectionMessage, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: scanning ? null : _scanUsb,
+                  icon: const Icon(Icons.usb_rounded),
+                  label: Text(scanning ? 'Scanning…' : 'Scan USB devices'),
                 ),
-              ),
+                if (devices.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  ...devices.map((d) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.usb),
+                        title: Text(d.productName ?? d.deviceName ?? 'USB serial device'),
+                        subtitle: Text('VID: ${d.vid ?? 0}  ·  PID: ${d.pid ?? 0}'),
+                        trailing: connectedDevice?.deviceId == d.deviceId
+                            ? const Icon(Icons.check_circle, color: Colors.green)
+                            : TextButton(onPressed: () => _connect(d), child: const Text('Connect')),
+                      )),
+                ],
+              ]),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
             const Text('PCB MODEL', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            ...List.generate(boardProfiles.length, (index) {
-              final profile = boardProfiles[index];
+            const SizedBox(height: 8),
+            ...List.generate(boardProfiles.length, (i) {
+              final p = boardProfiles[i];
               return Card(
                 child: RadioListTile<int>(
-                  value: index,
+                  value: i,
                   groupValue: selectedIndex,
-                  onChanged: (value) => setState(() => selectedIndex = value ?? 0),
-                  title: Text(profile.name),
-                  subtitle: Text('${profile.board}  ·  ${profile.status}'),
+                  onChanged: (v) => setState(() => selectedIndex = v ?? 0),
+                  title: Text(p.name),
+                  subtitle: Text('${p.board}  ·  Revision ${p.revision}'),
                 ),
               );
             }),
             const SizedBox(height: 18),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('FIRMWARE CATALOGUE',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    Text(selected.firmware, style: const TextStyle(fontSize: 16)),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Firmware asset not bundled in this starter build.',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 12),
-                    const Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        Chip(label: Text('MCU: uPD78F1201 · unverified per revision')),
-                        Chip(label: Text('Write: locked pending protocol validation')),
-                      ],
-                    ),
-                  ],
+            _sectionCard(
+              icon: Icons.folder_open_rounded,
+              title: 'FIRMWARE CATALOGUE',
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Expected profile file: ${selected.firmware}'),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _importFirmware,
+                  icon: const Icon(Icons.upload_file_rounded),
+                  label: const Text('Import firmware file'),
                 ),
-              ),
+                if (firmware != null) ...[
+                  const Divider(height: 24),
+                  Text(firmware!.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('${firmware!.size} bytes'),
+                  SelectableText('SHA-256: ${firmware!.sha256}'),
+                  const SizedBox(height: 6),
+                  Text(firmware!.message),
+                  if (firmware!.isSRecord)
+                    Text('${firmware!.records} records · ${firmware!.validSRecord ? "Checksum OK" : "Invalid"}'),
+                ],
+              ]),
             ),
             const SizedBox(height: 18),
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('SAFETY INTERLOCK',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    SizedBox(height: 8),
-                    Text(
-                      'Flash erase/write is not enabled. Confirm exact PCB revision, target voltage, connector pinout, and firmware compatibility before enabling any programming operation.',
-                    ),
-                  ],
-                ),
+            _sectionCard(
+              icon: Icons.lock_outline_rounded,
+              title: 'PROGRAMMING CONTROLS',
+              child: const Text(
+                'Erase, write, verify and reboot controls remain locked until the exact PCB revision, connector pinout, electrical levels, bootloader protocol and firmware compatibility are independently confirmed. USB connection and firmware inspection do not send programming commands.',
               ),
             ),
           ],
@@ -191,21 +298,15 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  void _showConnectionInfo() {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('USB-C OTG'),
-        content: const Text(
-          'USB host detection is not implemented in this starter build. The cable or adapter chipset and its protocol must be identified before selecting a serial driver.',
+  Widget _sectionCard({required IconData icon, required String title, required Widget child}) =>
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [Icon(icon), const SizedBox(width: 10), Text(title, style: const TextStyle(fontWeight: FontWeight.bold))]),
+            const SizedBox(height: 14),
+            child,
+          ]),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
+      );
 }
