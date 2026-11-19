@@ -25,6 +25,16 @@ void main() {
       expect(result.dataBytes, 1);
     });
 
+    test('canonical firmware hash ignores CRLF/LF and final-newline differences', () {
+      final apkStyle = Uint8List.fromList(utf8.encode('S10500000102F7\\r\\nS9030000FC\\r\\n'));
+      final gitStyle = Uint8List.fromList(utf8.encode('S10500000102F7\\nS9030000FC'));
+      expect(FirmwareValidator.sha256Hex(apkStyle), isNot(FirmwareValidator.sha256Hex(gitStyle)));
+      expect(
+        FirmwareValidator.canonicalSRecordSha256Hex(apkStyle),
+        FirmwareValidator.canonicalSRecordSha256Hex(gitStyle),
+      );
+    });
+
     test('rejects a bad checksum', () {
       final result = FirmwareValidator.validateSRecords(
         Uint8List.fromList(utf8.encode('S10500000102F6\nS9030000FC\n')),
