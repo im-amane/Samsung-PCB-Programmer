@@ -11,7 +11,9 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 - Android USB-host serial discovery/permission plus the same `flutter_libserialport` native serial backend recovered from the original APK (endpoint discovery/open/close; break, DTR/RTS and line configuration are not activated yet)
 - Import the original Samsung Swap APK locally and extract its three DA41 firmware assets plus four original image assets (app logo and board references) into app memory; the APK and extracted binaries are not uploaded or committed
 - Firmware file import, strict Motorola S-record structure/checksum/termination validation, address-indexed memory-map parsing, overlap/gap checks, and generic data-block preparation
-- Renesas 78K0R command/data frame codec with checksums, response validation, ACK/NACK handling, erase/program/verify/signature frame builders, complete 16 KB frame-plan preparation, and unit tests
+- Renesas 78K0R command/data frame codec with checksums, response validation, ACK/NACK handling, erase/program/verify/signature frame builders, and complete 16 KB frame-plan preparation
+- Testable protocol transaction engine for silicon-signature read and the full erase → program → verify sequence, including status checks after each frame and explicit destructive-erase confirmation
+- Native serial wire-channel adapter with configurable transmit/receive direction callbacks and 8N2/8N1 UART configuration; adapter-specific direction logic is intentionally not guessed
 - Exact SHA-256 fingerprint and selected-profile matching
 - Automated firmware-parser unit tests (`flutter test`), run before every CI APK build
 - Static-analysis findings from the supplied Samsung Swap APK
@@ -32,7 +34,7 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 The public repository does not redistribute the original APK or its proprietary firmware assets. Importing the APK on your own device avoids committing those binaries to a public repository.
 
 ## Bench testing
-Follow [the bench test checklist](docs/BENCH_TEST_CHECKLIST.md) for the next controlled session. The current build supports APK firmware extraction/validation and USB open/close diagnostics only.
+Follow [the bench test checklist](docs/BENCH_TEST_CHECKLIST.md) for the next controlled session. The app supports APK firmware extraction/validation and USB/native serial open/close diagnostics. The Renesas transaction engine and native serial channel are implemented and fake-channel tested, but they are not yet activated from the dashboard because the Samsung six-wire adapter's pinout, direction-control polarity, and target power/reset sequence have not been verified.
 
 ## Conversion warning
 
@@ -48,7 +50,7 @@ python3 tools/extract_samsung_swap_assets.py /path/to/Samsung_Swap.apk
 The script writes the extracted files under `assets/original_apk/` and prints SHA-256 hashes. The APK itself is not committed to this repository.
 
 ## Not yet implemented
-This independent app has the Renesas 78K0R frame codec, but does not yet execute MCU erase, flash write, target verification, or reboot over USB. The physical transport must support the documented single-wire TOOL0 UART behavior, asymmetric programmer/target stop-bit handling, and the board's RESET/FLMD0 control. The exact Samsung connector pinout, adapter electrical levels, stop-bit/direction handling, and 0459M cross-model compatibility must be confirmed before enabling the hardware operations. No programming command is sent by the current app. The original APK's verification mechanism is not modified or bypassed.
+This independent app now has a testable Renesas 78K0R transaction engine for silicon-signature read and erase/program/verify sequencing, plus a native serial wire-channel abstraction. It still does not execute MCU erase, flash write, target verification, or reboot from the dashboard. The physical transport must support the documented single-wire TOOL0 UART behavior, asymmetric programmer/target stop-bit handling, and the board's RESET/FLMD0 control. The exact Samsung connector pinout, adapter electrical levels, stop-bit/direction handling, and 0459M cross-model compatibility must be confirmed before enabling the hardware operations. No programming command is sent by the current app. The original APK's verification mechanism is not modified or bypassed.
 
 ## Build locally
 ```bash
