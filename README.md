@@ -11,7 +11,7 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 - USB OTG serial-device discovery and connection
 - Import the original Samsung Swap APK locally and extract its three DA41 firmware assets into app memory (the APK and proprietary firmware are not uploaded or committed)
 - Firmware file import, strict Motorola S-record structure/checksum/termination validation, address-indexed memory-map parsing, overlap/gap checks, and generic data-block preparation
-- Renesas 78K0R command/data frame codec with checksums, response validation, ACK/NACK handling, erase/program/verify/signature frame builders, and unit tests
+- Renesas 78K0R command/data frame codec with checksums, response validation, ACK/NACK handling, erase/program/verify/signature frame builders, complete 16 KB frame-plan preparation, and unit tests
 - Exact SHA-256 fingerprint and selected-profile matching
 - Automated firmware-parser unit tests (`flutter test`), run before every CI APK build
 - Static-analysis findings from the supplied Samsung Swap APK
@@ -48,7 +48,7 @@ python3 tools/extract_samsung_swap_assets.py /path/to/Samsung_Swap.apk
 The script writes the extracted files under `assets/original_apk/` and prints SHA-256 hashes. The APK itself is not committed to this repository.
 
 ## Not yet implemented
-This independent app has the Renesas 78K0R frame codec, but does not yet execute MCU erase, flash write, target verification, or reboot over USB. The physical transport must support the documented single-wire TOOL0 UART behavior and the board's RESET/FLMD0 control. The exact Samsung connector pinout, adapter electrical levels, stop-bit/direction handling, and 0459M cross-model compatibility must be confirmed before enabling the hardware operations. No programming command is sent by the current app. The original APK's verification mechanism is not modified or bypassed.
+This independent app has the Renesas 78K0R frame codec, but does not yet execute MCU erase, flash write, target verification, or reboot over USB. The physical transport must support the documented single-wire TOOL0 UART behavior, asymmetric programmer/target stop-bit handling, and the board's RESET/FLMD0 control. The exact Samsung connector pinout, adapter electrical levels, stop-bit/direction handling, and 0459M cross-model compatibility must be confirmed before enabling the hardware operations. No programming command is sent by the current app. The original APK's verification mechanism is not modified or bypassed.
 
 ## Build locally
 ```bash
