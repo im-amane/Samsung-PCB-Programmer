@@ -74,6 +74,8 @@ class RenesasProtocolSession {
     timing.validate();
   }
 
+  static const readyPulseTimeout = Duration(milliseconds: 100);
+
   final RenesasWireChannel channel;
   final RenesasSessionTiming timing;
 
@@ -117,7 +119,7 @@ class RenesasProtocolSession {
   /// then the Reset command/status exchange at 9600 bps.
   Future<void> synchronize() async {
     await channel.receiveMode();
-    final ready = await channel.readRawBytes(1, timing.commandTimeout);
+    final ready = await channel.readRawBytes(1, readyPulseTimeout);
     if (ready.length != 1 || ready.single != 0x00) {
       final value = ready.isEmpty
           ? 'no byte'
