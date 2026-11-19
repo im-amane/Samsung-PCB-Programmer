@@ -25,3 +25,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/firmwares/DA41-00814A.mot
+    - assets/firmwares/DA41-00814D_0459G.mot
+    - assets/firmwares/DA41-00814D_0459M.bin
