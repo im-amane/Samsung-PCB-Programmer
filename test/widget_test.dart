@@ -19,4 +19,13 @@ void main() {
     );
     expect(frenchDoor, findsOneWidget);
   });
+
+  testWidgets('default board loads its bundled verified firmware', (tester) async {
+    await tester.pumpWidget(const SamsungPcbProgrammerApp());
+    await tester.pumpAndSettle();
+
+    expect(find.text('DA41-00814A.mot'), findsOneWidget);
+    expect(find.text('Exact profile match: YES'), findsOneWidget);
+    expect(find.text('Renesas 16 KB frame plan: READY (no bytes sent to PCB)'), findsOneWidget);
+  });
 }
