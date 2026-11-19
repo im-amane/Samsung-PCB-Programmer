@@ -1,0 +1,35 @@
+name: Publish Android APK
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Create Android project scaffolding
+        run: flutter create . --platforms=android --project-name samsung_pcb_programmer
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Patch legacy USB serial repository declaration
+        run: |
+          PLUGIN="$HOME/.pub-cache/hosted/pub.dev/usb_serial-0.5.2/android/build.gradle"
+          if [ -f "$PLUGIN" ]; then
+            sed -i 's/jcenter()/mavenCentral()/g' "$PLUGIN"
+          fi
+      - name: Build installable APK
+        run: flutter build apk --debug
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/app/outputs/flutter-apk/app-debug.apk
+          generate_release_notes: true
