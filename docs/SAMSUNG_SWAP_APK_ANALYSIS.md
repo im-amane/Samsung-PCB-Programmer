@@ -98,3 +98,16 @@ A second string pass recovered these original product labels and screen/workflow
 These are strings recovered from the compiled snapshot. They do not by themselves recover widget layout, button callbacks, or the exact order/parameters of the original programming transactions. The independent app's selector now also shows the RT36 and French Door labels, but correctly marks them as having no firmware asset in this supplied APK. The three bundled DA41 images remain the only firmware-backed profiles.
 
 The APK import flow in the independent app now also extracts the four original image assets into memory. It displays the original app logo and the DA41-00814D board images after the user imports the APK; these image files are not permanently copied to the public repository.
+
+
+## Native serial stack recovered from APK
+
+The APK's DEX registers both the Android USB serial driver stack (`com.hoho.android.usbserial`, including CDC ACM, CH340, CP210x and FTDI drivers) and the Flutter plugin `flutter_libserialport`. The APK bundles `libserialport.so` for ARM64, ARMv7 and x86_64. The ARM64 library exports the following relevant functions:
+
+- `sp_start_break` / `sp_end_break`
+- `sp_set_dtr` / `sp_set_rts`
+- `sp_set_baudrate` / `sp_set_stopbits` / `sp_set_bits` / `sp_set_parity`
+- `sp_blocking_read` / `sp_blocking_write` / `sp_nonblocking_read` / `sp_nonblocking_write`
+- `sp_open` / `sp_close` / `sp_list_ports`
+
+This confirms that the original application has both Android USB-serial support and a native serial-control layer capable of break and modem-control operations. The independent app now includes the same two Flutter dependency families: `usb_serial` for Android USB host enumeration/permission and `flutter_libserialport` for native serial endpoint enumeration/opening and the lower-level serial capabilities. The app currently performs discovery/open/close only; it does not yet configure line settings, pulse DTR/RTS, assert BREAK, or transmit programming data.
