@@ -621,7 +621,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         controlAffinity: ListTileControlAffinity.leading,
                       ),
                       const Text(
-                        'The app does not control target VDD, RESET or FLMD0. The target must already be in flash-programming mode and the cable wiring must be independently verified.',
+                        'This programming flow has passed software tests only; it has not been bench-tested on a Samsung PCB. The app does not control target VDD, RESET or FLMD0. The target must already be in flash-programming mode and the cable wiring must be independently verified.',
                       ),
                     ],
                   ),
@@ -1008,7 +1008,7 @@ class _DashboardPageState extends State<DashboardPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Tap Read target signature, then trigger the cable's boot-entry/reset sequence within five seconds. After RESET release, the Renesas target emits READY within its documented 4.4-100 ms window. The app synchronizes and reads the signature. It does not control VDD, RESET or FLMD0.'),
+                  const Text("Tap Read target signature, then trigger the cable boot-entry/reset sequence within five seconds. After RESET release, the Renesas target emits READY within its documented 4.4-100 ms window. The app synchronizes and reads the signature. It does not control VDD, RESET or FLMD0."),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: usbTransport == null || readingSignature || programming
