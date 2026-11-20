@@ -26,6 +26,9 @@ class RenesasSessionTiming {
     required this.dataTimeout,
   });
 
+  /// Minimum wait between ordinary command/data transactions. For the
+  /// 78K0R/Ix3 profile, 100 us covers the documented 83.8 us verify-data
+  /// setup minimum; target-specific maximum windows still need commissioning.
   final Duration interFrame;
   final Duration commandTimeout;
   final Duration dataTimeout;
@@ -144,9 +147,17 @@ class RenesasProtocolSession {
           : '0x${ready.first.toRadixString(16).padLeft(2, '0')}';
       throw StateError('Expected Renesas READY pulse 0x00, received $value.');
     }
-    await Future<void>.delayed(const Duration(microseconds: 111));
+    // U19486EJ1V0AN §4.4 specifies two separate 00H low-level outputs:
+    // tCOM before the first, t12 between them, then receive direction and
+    // t2C before the Reset command. Combining the bytes into one write skips
+    // required timing and direction transitions.
+    await Future<void>.delayed(const Duration(microseconds: 14)); // tCOM >= 13.2 us
     await channel.transmitMode();
-    await channel.write(Uint8List.fromList([0x00, 0x00]));
+    await channel.write(Uint8List.fromList([0x00]));
+    await Future<void>.delayed(const Duration(microseconds: 111)); // t12 >= 110.6 us
+    await channel.write(Uint8List.fromList([0x00]));
+    await channel.receiveMode();
+    await Future<void>.delayed(const Duration(microseconds: 609)); // t2C >= 608.1 us
     await _exchangeCommand(
       Renesas78k0rProtocol.resetFrame(),
       operation: 'reset synchronization',
