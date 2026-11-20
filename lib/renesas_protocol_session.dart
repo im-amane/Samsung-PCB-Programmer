@@ -158,10 +158,24 @@ class RenesasProtocolSession {
     await channel.write(Uint8List.fromList([0x00]));
     await channel.receiveMode();
     await Future<void>.delayed(const Duration(microseconds: 609)); // t2C >= 608.1 us
-    await _exchangeCommand(
-      Renesas78k0rProtocol.resetFrame(),
-      operation: 'reset synchronization',
-    );
+    // Renesas §4.4 allows up to 16 Reset-command attempts when the
+    // target returns a non-ACK status. A receive timeout is not retried:
+    // the manual requires a fresh hardware reset and programming-mode entry.
+    StateError? lastStatusError;
+    for (var attempt = 0; attempt < 16; attempt++) {
+      try {
+        await _exchangeCommand(
+          Renesas78k0rProtocol.resetFrame(),
+          operation: 'reset synchronization',
+        );
+        return;
+      } on StateError catch (error) {
+        lastStatusError = error;
+        if (attempt == 15) rethrow;
+        await Future<void>.delayed(const Duration(microseconds: 609)); // t2C
+      }
+    }
+    throw lastStatusError ?? StateError('Reset synchronization failed.');
   }
 
   /// Reads the silicon signature only. Target must already be in programming
