@@ -67,6 +67,28 @@ class Renesas78k0rProtocol {
   static Uint8List siliconSignatureFrame() => commandFrame(siliconSignature);
   static Uint8List versionGetFrame() => commandFrame(versionGet);
 
+  /// Calculates D02H/D02L for programmer-correction mode (D01=01).
+  /// The caller must provide the measured READY-pulse error ratio and the
+  /// exact device oscillator frequency from its data sheet.
+  static int calculateBaudRateDivisor({
+    required double oscillatorHz,
+    required double readyPulseError,
+    required int baudRate,
+  }) {
+    if (!oscillatorHz.isFinite || oscillatorHz <= 0) {
+      throw ArgumentError.value(oscillatorHz, 'oscillatorHz');
+    }
+    if (!readyPulseError.isFinite || readyPulseError <= 0) {
+      throw ArgumentError.value(readyPulseError, 'readyPulseError');
+    }
+    if (baudRate <= 0) throw ArgumentError.value(baudRate, 'baudRate');
+    final divisor = ((oscillatorHz * readyPulseError) / (baudRate * 2)).round();
+    if (divisor < 1 || divisor > 0xffff) {
+      throw RangeError.range(divisor, 1, 0xffff, 'divisor');
+    }
+    return divisor;
+  }
+
   /// D01..D04 are deliberately required from the caller. The D04 voltage
   /// mode and D02 baud divisor must come from the verified target setup.
   static Uint8List baudRateSetFrame({
