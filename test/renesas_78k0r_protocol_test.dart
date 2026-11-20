@@ -77,6 +77,19 @@ void main() {
       );
     });
 
+    test('builds the documented 115200 baud-rate command', () {
+      expect(
+        Renesas78k0rProtocol.baudRateSetFrame(
+          synchronizationMode: 0,
+          baudHigh: 0x00,
+          baudLow: 0x0a,
+          noiseFilter: 1,
+          voltageMode: 0,
+        ),
+        [0x01, 0x06, 0x9a, 0x00, 0x00, 0x0a, 0x01, 0x00, 0x55, 0x03],
+      );
+    });
+
     test('builds a block-aligned programming command', () {
       expect(
         Renesas78k0rProtocol.programmingFrame(0x0000, 0x3fff),
