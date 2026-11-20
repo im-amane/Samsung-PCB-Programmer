@@ -677,6 +677,7 @@ class _DashboardPageState extends State<DashboardPage> {
           commandTimeout: Duration(seconds: 10),
           dataTimeout: Duration(seconds: 5),
         ),
+        allowDestructiveOperations: hardwareBenchCommissioned,
       );
       await session.program(
         plan: plan,
