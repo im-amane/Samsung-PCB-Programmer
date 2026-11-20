@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
@@ -778,276 +777,68 @@ class _DashboardPageState extends State<DashboardPage> {
     final selected = boardProfiles[selectedIndex];
     return Scaffold(
       appBar: AppBar(
-        leading: apkImages.containsKey('app_logo.jpg')
-            ? Padding(
-                padding: const EdgeInsets.all(7),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(9),
-                  child: Image.memory(apkImages['app_logo.jpg']!, fit: BoxFit.cover),
-                ),
-              )
-            : null,
-        title: const Text('Samsung Swap'),
-        actions: [
-          IconButton(
-            tooltip: 'Scan USB',
-            onPressed: scanning ? null : _scanUsb,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
+        title: const Text('Samsung PCB Programmer'),
+        actions: [IconButton(onPressed: scanning ? null : _scanUsb, icon: const Icon(Icons.refresh))],
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _sectionCard(
-              icon: Icons.memory_rounded,
-              title: 'PROGRAMMER STATUS',
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(port == null && nativeTransport == null ? 'Not connected' : 'USB / serial connected',
-                    style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 6),
-                Text(connectionMessage, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: scanning ? null : _scanUsb,
-                  icon: const Icon(Icons.usb_rounded),
-                  label: Text(scanning ? 'Scanning…' : 'Scan USB devices'),
-                ),
-                if (devices.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  ...devices.map((d) => ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.usb),
-                        title: Text((d.productName?.isNotEmpty ?? false) ? d.productName! : (d.deviceName ?? 'USB serial device')),
-                        subtitle: Text('VID: ${d.vendorId}  ·  PID: ${d.productId}'),
-                        trailing: connectedDevice?.deviceId == d.deviceId
-                            ? const Icon(Icons.check_circle, color: Colors.green)
-                            : TextButton(onPressed: () => _connect(d), child: const Text('Connect')),
-                      )),
-                ],
-                if (nativePorts.isNotEmpty) ...[
-                  const Divider(height: 20),
-                  const Text('Native libserialport interfaces'),
-                  ...nativePorts.map((path) => ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.settings_input_component),
-                        title: Text(path),
-                        subtitle: Text(connectedNativePath == path ? 'Connected via libserialport' : 'Native serial endpoint'),
-                        trailing: connectedNativePath == path
-                            ? const Icon(Icons.check_circle, color: Colors.green)
-                            : TextButton(onPressed: () => _connectNative(path), child: const Text('Open')),
-                      )),
-                ],
-                if (port != null || nativeTransport != null)
-                  TextButton.icon(
-                    onPressed: _disconnect,
-                    icon: const Icon(Icons.link_off_rounded),
-                    label: const Text('Disconnect'),
-                  ),
-              ]),
-            ),
-            const SizedBox(height: 18),
-            _sectionCard(
-              icon: Icons.tune_rounded,
-              title: 'USB TOOL0 ADAPTER PROFILE',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('These settings define the DTR/RTS states the app will request when the protocol transport is explicitly used. They do not identify your cable wiring.'),
-                  const SizedBox(height: 8),
-                  _lineSwitch('Transmit DTR asserted', transmitDtr, (v) => _setUsbLineProfile(transmitDtr: v)),
-                  _lineSwitch('Transmit RTS asserted', transmitRts, (v) => _setUsbLineProfile(transmitRts: v)),
-                  _lineSwitch('Receive DTR asserted', receiveDtr, (v) => _setUsbLineProfile(receiveDtr: v)),
-                  _lineSwitch('Receive RTS asserted', receiveRts, (v) => _setUsbLineProfile(receiveRts: v)),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Initial TOOL0 baud rate: 9,600 bps. Higher rates require a Renesas Baud Rate Set command and a verified target-voltage profile; direct host-only baud changes are disabled.',
-                  ),
-                  const SizedBox(height: 6),
-                  Text('USB serial BREAK control is available when supported by the adapter. The app does not drive VDD, RESET or FLMD0; boot entry is manual, and flashing is gated by exact firmware/target preflight plus explicit confirmation.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            if (selected.board == 'DA41-00814D' && apkImages.containsKey('samsung_da41_00814d.jpg')) ...[
-              _sectionCard(
-                icon: Icons.developer_board_rounded,
-                title: 'ORIGINAL BOARD IMAGE',
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.memory(apkImages['samsung_da41_00814d.jpg']!, fit: BoxFit.contain, width: double.infinity),
-                  ),
-                  if (apkImages.containsKey('samsung_da41_00814d_h.jpg')) ...[
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.memory(apkImages['samsung_da41_00814d_h.jpg']!, fit: BoxFit.contain, width: double.infinity),
-                    ),
-                  ],
-                ]),
-              ),
-              const SizedBox(height: 18),
-            ],
-            const Text('TARGET FIRMWARE PROFILE', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            const Text('This selects the firmware profile only. The physical PCB model is not detected automatically; check its sticker and revision before choosing.'),
-            const SizedBox(height: 8),
-            ...List.generate(boardProfiles.length, (i) {
-              final p = boardProfiles[i];
-              return Card(
-                child: RadioListTile<int>(
-                  value: i,
-                  groupValue: selectedIndex,
-                  onChanged: programming ? null : (v) {
-                    setState(() {
-                      selectedIndex = v ?? 0;
-                      firmware = null;
-                      firmwareBytes = null;
-                      signatureDeviceName = null;
-                      signatureFlashLastAddress = null;
-                      programProgress = null;
-                      programMessage = 'Board profile changed. Read target signature again.';
-                    });
-                    _loadSelectedFirmware();
-                  },
-                  title: Text(p.name),
-                  subtitle: Text('${p.board}  ·  Revision ${p.revision}'),
-                ),
-              );
-            }),
-            const SizedBox(height: 18),
-            _sectionCard(
-              icon: Icons.folder_open_rounded,
-              title: 'FIRMWARE CATALOGUE',
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Selected profile: ${selected.firmware.isEmpty ? 'No firmware bundled in supplied APK' : selected.firmware}'),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: (importingApk || programming) ? null : _importApk,
-                  icon: const Icon(Icons.archive_outlined),
-                  label: Text(importingApk ? 'Reading APK…' : 'Import original Samsung Swap APK'),
-                ),
-                Text(apkMessage, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                if (apkAssets.isNotEmpty)
-                  ExpansionTile(
-                    tilePadding: EdgeInsets.zero,
-                    title: Text('Original Flutter asset files (${apkAssets.length})'),
-                    children: apkAssets.entries.map((asset) => ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(asset.key, style: const TextStyle(fontSize: 12)),
-                      trailing: Text('${(asset.value.length / 1024).toStringAsFixed(1)} KB'),
-                    )).toList(),
-                  ),
-                if (apkAssets.isNotEmpty)
-                  OutlinedButton.icon(
-                    onPressed: programming ? null : _exportApkAssets,
-                    icon: const Icon(Icons.save_alt_rounded),
-                    label: const Text('Export all original Flutter assets as ZIP'),
-                  ),
-                if (selected.firmware.isNotEmpty && apkFirmware.containsKey(selected.firmware))
-                  TextButton.icon(
-                    onPressed: programming ? null : _loadApkFirmware,
-                    icon: const Icon(Icons.download_done),
-                    label: const Text('Load selected firmware from APK'),
-                  ),
-                const Divider(height: 22),
-                OutlinedButton.icon(
-                  onPressed: programming ? null : _importFirmware,
-                  icon: const Icon(Icons.upload_file_rounded),
-                  label: const Text('Import S-record firmware file separately'),
-                ),
-                if (firmware != null) ...[
-                  const Divider(height: 24),
-                  Text(firmware!.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text('${firmware!.size} bytes'),
-                  SelectableText('SHA-256: ${firmware!.sha256}'),
-                  const SizedBox(height: 6),
-                  Text(firmware!.message),
-                  Text('${firmware!.records} total records · ${firmware!.dataBytes} firmware bytes'),
-                  Text('${firmware!.preparedBlocks} generic data blocks prepared for protocol integration'),
-                  Text('Renesas 16 KB frame plan: ${firmware!.protocolPlanReady ? "READY" : "NOT READY"} (preflight required before programming)'),
-                  Text('Address range: ${_formatAddress(firmware!.startAddress)} - ${_formatAddress(firmware!.endAddress)}'),
-                  Text('S-record validation: ${firmware!.validSRecord ? "PASS" : "FAIL"}'),
-                  Text('Exact profile match: ${firmware!.profileMatches ? "YES" : "NO"}'),
-                ],
-              ]),
-            ),
-            const SizedBox(height: 18),
-            _sectionCard(
-              icon: Icons.biotech_rounded,
-              title: 'PROGRAMMING ENGINE · RENESAS 78K0R',
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Recovered engine clues: DA41Engine, SerialTransport, AndroidSerialTransport, eraseFlash, writeChunkFast, writeFlash and verify.'),
-                  SizedBox(height: 8),
-                  Text('MCU target: Renesas 78K0R / uPD78F1201 with a 16 KB flash range.'),
-                  Text('Android USB serial transport supports DTR/RTS direction control and hardware BREAK where the adapter driver supports it.'),
-                  SizedBox(height: 8),
-                  Text('The app can receive the READY pulse, send the two 0x00 synchronization bytes, perform the Reset handshake, and request the silicon signature. The erase/program/verify transaction engine is covered by simulated-channel tests, but destructive operations remain hard-locked until the exact adapter and PCB pass hardware commissioning.'),
-                  SizedBox(height: 8),
-                  Text('VDD, RESET and FLMD0 are not driven by the app. Board-specific wiring, logic voltage and boot-entry control must be verified before any destructive operation.'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            _sectionCard(
-              icon: Icons.fingerprint_rounded,
-              title: 'READ-ONLY SILICON SIGNATURE',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("Tap Read target signature, then trigger the cable boot-entry/reset sequence within five seconds. After RESET release, the Renesas target emits READY within its documented 4.4-100 ms window. The app synchronizes and reads the signature. It does not control VDD, RESET or FLMD0."),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: usbTransport == null || readingSignature || programming
-                        ? null
-                        : _readSiliconSignature,
-                    icon: const Icon(Icons.fingerprint),
-                    label: Text(readingSignature ? 'Reading signature…' : 'Read target signature'),
-                  ),
-                  const SizedBox(height: 8),
-                  SelectableText(signatureMessage),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            _sectionCard(
-              icon: Icons.lock_outline_rounded,
-              title: 'PROGRAMMING CONTROLS',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_programReadinessMessage),
-                  const SizedBox(height: 8),
-                  if (programProgress != null) ...[
-                    LinearProgressIndicator(
-                      value: programProgress!.fraction,
-                    ),
-                    const SizedBox(height: 6),
-                    Text('${programProgress!.completedFrames}/${programProgress!.totalFrames} protocol responses checked'),
-                  ],
-                  SelectableText(programMessage),
-                  const SizedBox(height: 10),
-                  FilledButton.icon(
-                    onPressed: _canProgram ? _programFirmware : null,
-                    icon: const Icon(Icons.flash_on_rounded),
-                    label: Text(programming ? 'Programming…' : 'Erase + Write + Verify'),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Only exact-profile 16 KB S-record images and a verified uPD78F1201/16 KB target pass preflight. The operation starts with a full-chip erase. The app does not reboot or power off the target.',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ),
+      body: SafeArea(child: ListView(padding: const EdgeInsets.all(14), children: [
+        _sectionCard(icon: Icons.usb, title: 'USB CONNECTION', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(connectionMessage),
+          FilledButton.icon(onPressed: scanning ? null : _scanUsb, icon: const Icon(Icons.search), label: Text(scanning ? 'Scanning...' : 'Scan devices')),
+          ...devices.map((device) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(device.productName.isNotEmpty ? device.productName : (device.deviceName ?? 'USB serial device')),
+            subtitle: Text('VID ${device.vendorId} · PID ${device.productId}'),
+            trailing: connectedDevice?.deviceId == device.deviceId ? const Icon(Icons.check_circle, color: Colors.green) : TextButton(onPressed: () => _connect(device), child: const Text('Connect')),
+          )),
+          if (port != null || nativeTransport != null) TextButton(onPressed: _disconnect, child: const Text('Disconnect')),
+        ])),
+        const SizedBox(height: 12),
+        _sectionCard(icon: Icons.developer_board, title: 'BOARD SELECTION', child: DropdownButtonFormField<int>(
+          value: selectedIndex, isExpanded: true,
+          items: List.generate(boardProfiles.length, (i) => DropdownMenuItem(value: i, child: Text(boardProfiles[i].name))),
+          onChanged: programming ? null : (v) {
+            if (v == null) return;
+            setState(() { selectedIndex = v; firmware = null; firmwareBytes = null; signatureDeviceName = null; signatureFlashLastAddress = null; programProgress = null; programMessage = 'Board profile changed. Read target signature again.'; });
+            _loadSelectedFirmware();
+          },
+        )),
+        const SizedBox(height: 12),
+        _sectionCard(icon: Icons.folder_open, title: 'FIRMWARE', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(selected.firmware.isEmpty ? 'No bundled firmware for this profile.' : selected.firmware),
+          Wrap(spacing: 8, children: [
+            OutlinedButton.icon(onPressed: programming ? null : _importFirmware, icon: const Icon(Icons.upload_file), label: const Text('Import firmware')),
+            OutlinedButton.icon(onPressed: importingApk || programming ? null : _importApk, icon: const Icon(Icons.archive), label: Text(importingApk ? 'Reading APK...' : 'Import original APK')),
+          ]),
+          if (firmware != null) ...[
+            Text(firmware!.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text('${firmware!.size} bytes · ${firmware!.records} records'),
+            Text('S-record: ${firmware!.validSRecord ? "PASS" : "FAIL"} · Profile match: ${firmware!.profileMatches ? "YES" : "NO"}'),
+            SelectableText('SHA-256: ${firmware!.sha256}'),
+            Text(firmware!.message),
           ],
-        ),
-      ),
+          Text(apkMessage),
+        ])),
+        const SizedBox(height: 12),
+        _sectionCard(icon: Icons.fingerprint, title: 'TARGET SIGNATURE', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          FilledButton.tonalIcon(onPressed: usbTransport == null || readingSignature || programming ? null : _readSiliconSignature, icon: const Icon(Icons.memory), label: Text(readingSignature ? 'Reading...' : 'Read target signature')),
+          SelectableText(signatureMessage),
+        ])),
+        const SizedBox(height: 12),
+        _sectionCard(icon: Icons.settings, title: 'TOOL0 ADAPTER SETTINGS', child: Column(children: [
+          _lineSwitch('Transmit DTR', transmitDtr, (v) => _setUsbLineProfile(transmitDtr: v)),
+          _lineSwitch('Transmit RTS', transmitRts, (v) => _setUsbLineProfile(transmitRts: v)),
+          _lineSwitch('Receive DTR', receiveDtr, (v) => _setUsbLineProfile(receiveDtr: v)),
+          _lineSwitch('Receive RTS', receiveRts, (v) => _setUsbLineProfile(receiveRts: v)),
+        ])),
+        const SizedBox(height: 12),
+        _sectionCard(icon: Icons.flash_on, title: 'PROGRAMMING', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(_programReadinessMessage),
+          if (programProgress != null) LinearProgressIndicator(value: programProgress!.fraction),
+          SelectableText(programMessage),
+          SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: _canProgram ? _programFirmware : null, icon: const Icon(Icons.flash_on), label: Text(programming ? 'Programming...' : 'Erase + Write + Verify'))),
+          const Text('Destructive programming remains locked until the exact PCB and adapter pass hardware commissioning.', style: TextStyle(fontSize: 12)),
+        ])),
+      ])),
     );
   }
 
