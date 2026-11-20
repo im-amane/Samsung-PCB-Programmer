@@ -12,6 +12,7 @@ class _FakeChannel implements RenesasWireChannel {
   final List<Uint8List> writes = [];
   int txCount = 0;
   int rxCount = 0;
+  final List<int> baudRates = [];
 
   _FakeChannel(this.responses, {List<Uint8List> rawResponses = const []})
       : rawResponses = List<Uint8List>.from(rawResponses);
@@ -24,6 +25,9 @@ class _FakeChannel implements RenesasWireChannel {
 
   @override
   Future<void> write(Uint8List bytes) async => writes.add(Uint8List.fromList(bytes));
+
+  @override
+  Future<void> updateBaudRate(int baudRate) async => baudRates.add(baudRate);
 
   @override
   Future<Uint8List> readRawBytes(int count, Duration timeout) async {
@@ -148,6 +152,68 @@ void main() {
 
       await expectLater(session.synchronize(), throwsStateError);
       expect(channel.writes, isEmpty);
+    });
+
+    test('changes baud only through the Renesas command and confirms with Reset', () async {
+      final channel = _FakeChannel([_statusFrame([0x06])]);
+      final session = RenesasProtocolSession(
+        channel: channel,
+        timing: const RenesasSessionTiming(
+          interFrame: Duration.zero,
+          commandTimeout: Duration(seconds: 1),
+          dataTimeout: Duration(seconds: 1),
+        ),
+      );
+
+      await session.setBaudRate(
+        baudRate: 115200,
+        synchronizationMode: 0,
+        baudHigh: 0x00,
+        baudLow: 0x0a,
+        noiseFilter: 1,
+        voltageMode: 0,
+      );
+
+      expect(channel.writes, [
+        Renesas78k0rProtocol.baudRateSetFrame(
+          synchronizationMode: 0,
+          baudHigh: 0x00,
+          baudLow: 0x0a,
+          noiseFilter: 1,
+          voltageMode: 0,
+        ),
+        Renesas78k0rProtocol.resetFrame(),
+      ]);
+      expect(channel.baudRates, [115200]);
+      expect(channel.txCount, 2);
+      expect(channel.rxCount, 2);
+      expect(channel.responses, isEmpty);
+    });
+
+    test('rejects inconsistent microcontroller-correction baud parameters', () async {
+      final channel = _FakeChannel([]);
+      final session = RenesasProtocolSession(
+        channel: channel,
+        timing: const RenesasSessionTiming(
+          interFrame: Duration.zero,
+          commandTimeout: Duration(seconds: 1),
+          dataTimeout: Duration(seconds: 1),
+        ),
+      );
+
+      await expectLater(
+        session.setBaudRate(
+          baudRate: 57600,
+          synchronizationMode: 0,
+          baudHigh: 0,
+          baudLow: 0x0a,
+          noiseFilter: 1,
+          voltageMode: 0,
+        ),
+        throwsArgumentError,
+      );
+      expect(channel.writes, isEmpty);
+      expect(channel.baudRates, isEmpty);
     });
 
     test('reads signature only after ACK and validates response checksum', () async {
