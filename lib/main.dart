@@ -11,6 +11,7 @@ import 'package:flutter_libserialport/flutter_libserialport.dart' as libserial;
 import 'firmware_validator.dart';
 import 'srecord_image.dart';
 import 'renesas_program_plan.dart';
+import 'renesas_78k0r_protocol.dart';
 import 'renesas_protocol_session.dart';
 import 'renesas_serial_transport.dart';
 import 'renesas_usb_serial_transport.dart';
@@ -103,7 +104,6 @@ class _DashboardPageState extends State<DashboardPage> {
   bool transmitRts = false;
   bool receiveDtr = false;
   bool receiveRts = false;
-  int usbBaudRate = 9600;
   bool readingSignature = false;
   String signatureMessage = 'Target signature not read.';
   String? signatureDeviceName;
@@ -222,7 +222,7 @@ class _DashboardPageState extends State<DashboardPage> {
       final usbLink = RenesasUsbSerialTransport(
         driver: AndroidUsbSerialPortDriver(openedPort),
         lineProfile: _usbLineProfile,
-        baudRate: usbBaudRate,
+        baudRate: Renesas78k0rProtocol.initialBaudRate,
       );
       setState(() {
         port = openedPort;
@@ -861,23 +861,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   _lineSwitch('Receive DTR asserted', receiveDtr, (v) => _setUsbLineProfile(receiveDtr: v)),
                   _lineSwitch('Receive RTS asserted', receiveRts, (v) => _setUsbLineProfile(receiveRts: v)),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Text('UART baud rate'),
-                      const SizedBox(width: 16),
-                      DropdownButton<int>(
-                        value: usbBaudRate,
-                        items: const [9600, 19200, 38400, 57600, 115200]
-                            .map((rate) => DropdownMenuItem<int>(
-                                  value: rate,
-                                  child: Text('$rate baud'),
-                                ))
-                            .toList(),
-                        onChanged: (readingSignature || programming) ? null : (rate) {
-                          if (rate != null) _setUsbBaudRate(rate);
-                        },
-                      ),
-                    ],
+                  const Text(
+                    'Initial TOOL0 baud rate: 9,600 bps. Higher rates require a Renesas Baud Rate Set command and a verified target-voltage profile; direct host-only baud changes are disabled.',
                   ),
                   const SizedBox(height: 6),
                   Text('USB serial BREAK control is available when supported by the adapter. The app does not drive VDD, RESET or FLMD0; boot entry is manual, and flashing is gated by exact firmware/target preflight plus explicit confirmation.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
@@ -1085,13 +1070,6 @@ class _DashboardPageState extends State<DashboardPage> {
       this.receiveDtr = receiveDtr ?? this.receiveDtr;
       this.receiveRts = receiveRts ?? this.receiveRts;
       usbTransport?.updateLineProfile(_usbLineProfile);
-    });
-  }
-
-  void _setUsbBaudRate(int value) {
-    setState(() {
-      usbBaudRate = value;
-      usbTransport?.updateBaudRate(value);
     });
   }
 
