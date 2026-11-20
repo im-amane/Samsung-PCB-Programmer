@@ -169,7 +169,7 @@ class RenesasProtocolSession {
           operation: 'reset synchronization',
         );
         return;
-      } on StateError catch (error) {
+      } on RenesasProtocolStatusError catch (error) {
         lastStatusError = error;
         if (attempt == 15) rethrow;
         await Future<void>.delayed(const Duration(microseconds: 609)); // t2C
