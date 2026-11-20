@@ -214,7 +214,9 @@ class Renesas78k0rProtocol {
     for (var index = 0; index < response.data.length; index++) {
       final status = response.data[index];
       if (status != ack) {
-        throw StateError('78K0R $operation status ${index + 1} failed with 0x${status.toRadixString(16).padLeft(2, '0').toUpperCase()}.');
+        throw RenesasProtocolStatusError(
+          '78K0R $operation status ${index + 1} failed with 0x${status.toRadixString(16).padLeft(2, '0').toUpperCase()}.',
+        );
       }
     }
   }
@@ -256,4 +258,11 @@ class RenesasResponseFrame {
   final bool isFinal;
 
   int? get status => data.length == 1 ? data.single : null;
+}
+
+/// A syntactically valid response frame whose protocol status is not ACK.
+/// Kept distinct from transport/time-out failures so only NACK-like responses
+/// are eligible for the Reset retry rule.
+class RenesasProtocolStatusError extends StateError {
+  RenesasProtocolStatusError(super.message);
 }
