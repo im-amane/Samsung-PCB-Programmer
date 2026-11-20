@@ -13,6 +13,7 @@ abstract interface class RenesasWireChannel {
   Future<void> transmitMode();
   Future<void> receiveMode();
   Future<void> write(Uint8List bytes);
+  Future<void> updateBaudRate(int baudRate);
   Future<Uint8List> readFrame(Duration timeout);
   Future<Uint8List> readRawBytes(int count, Duration timeout);
 }
@@ -158,24 +159,94 @@ class RenesasProtocolSession {
     await channel.write(Uint8List.fromList([0x00]));
     await channel.receiveMode();
     await Future<void>.delayed(const Duration(microseconds: 609)); // t2C >= 608.1 us
-    // Renesas §4.4 allows up to 16 Reset-command attempts when the
-    // target returns a non-ACK status. A receive timeout is not retried:
-    // the manual requires a fresh hardware reset and programming-mode entry.
+    await _sendResetWithRetry(
+      retryDelay: const Duration(microseconds: 609), // t2C
+      operation: 'reset synchronization',
+    );
+  }
+
+  /// Changes the target and host UART speed using the documented 78K0R
+  /// Baud Rate Set command. Call only after [synchronize] succeeded.
+  ///
+  /// In microcontroller-correction mode (D01=00), Renesas fixes D02H/D02L
+  /// to 00/0A, which selects 115200 bps. Programmer-correction mode (D01=01)
+  /// requires D02 to be calculated from the measured READY pulse and the
+  /// device oscillator. The caller must choose D04 from the verified target
+  /// voltage range; this method deliberately does not guess it.
+  Future<void> setBaudRate({
+    required int baudRate,
+    required int synchronizationMode,
+    required int baudHigh,
+    required int baudLow,
+    required int noiseFilter,
+    required int voltageMode,
+  }) async {
+    if (baudRate <= 0) {
+      throw ArgumentError.value(baudRate, 'baudRate', 'Must be positive.');
+    }
+    if (synchronizationMode != 0 && synchronizationMode != 1) {
+      throw ArgumentError.value(synchronizationMode, 'synchronizationMode');
+    }
+    if (synchronizationMode == 0 && (baudHigh != 0 || baudLow != 0x0a || baudRate != 115200)) {
+      throw ArgumentError(
+        'D01=00 microcontroller-correction mode requires D02=00/0A and 115200 bps.',
+      );
+    }
+    if (noiseFilter != 0 && noiseFilter != 1) {
+      throw ArgumentError.value(noiseFilter, 'noiseFilter');
+    }
+    if (voltageMode != 0 && voltageMode != 1) {
+      throw ArgumentError.value(voltageMode, 'voltageMode');
+    }
+
+    final frame = Renesas78k0rProtocol.baudRateSetFrame(
+      synchronizationMode: synchronizationMode,
+      baudHigh: baudHigh,
+      baudLow: baudLow,
+      noiseFilter: noiseFilter,
+      voltageMode: voltageMode,
+    );
+    await Future<void>.delayed(timing.interFrame);
+    try {
+      await channel.transmitMode(); // send Baud Rate Set at current speed
+      await channel.write(frame);
+      await channel.updateBaudRate(baudRate);
+      await channel.receiveMode(); // target has switched; listen at new speed
+    } catch (_) {
+      try { await channel.receiveMode(); } catch (_) {}
+      rethrow;
+    }
+
+    // U19486 §5.2: tWT10 minimum is 205.3 us before Reset at new baud.
+    await Future<void>.delayed(const Duration(microseconds: 206));
+    await _sendResetWithRetry(
+      retryDelay: const Duration(microseconds: 206),
+      operation: 'baud-rate synchronization',
+    );
+  }
+
+  Future<void> _sendResetWithRetry({
+    required Duration retryDelay,
+    required String operation,
+  }) async {
+    // Renesas §4.4/§4.5 allows up to 16 Reset-command attempts after a
+    // non-ACK status. A receive timeout is not retried: re-enter programming
+    // mode with a fresh hardware reset before trying again.
     StateError? lastStatusError;
     for (var attempt = 0; attempt < 16; attempt++) {
       try {
         await _exchangeCommand(
           Renesas78k0rProtocol.resetFrame(),
-          operation: 'reset synchronization',
+          operation: operation,
         );
         return;
       } on RenesasProtocolStatusError catch (error) {
         lastStatusError = error;
         if (attempt == 15) rethrow;
-        await Future<void>.delayed(const Duration(microseconds: 609)); // t2C
+        await Future<void>.delayed(retryDelay);
       }
     }
-    throw lastStatusError ?? StateError('Reset synchronization failed.');
+    throw lastStatusError ?? StateError('$operation failed.');
   }
 
   /// Reads the silicon signature only. Target must already be in programming
