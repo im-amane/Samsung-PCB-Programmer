@@ -97,13 +97,14 @@ void main() {
       await session.synchronize();
 
       expect(channel.writes, [
-        [0x00, 0x00],
+        [0x00],
+        [0x00],
         Renesas78k0rProtocol.resetFrame(),
       ]);
       expect(channel.rawResponses, isEmpty);
       expect(channel.responses, isEmpty);
       expect(channel.txCount, 2);
-      expect(channel.rxCount, 2);
+      expect(channel.rxCount, 3);
     });
 
     test('rejects a missing or invalid READY pulse before sending bytes', () async {
