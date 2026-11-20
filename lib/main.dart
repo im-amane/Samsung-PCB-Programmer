@@ -819,7 +819,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   ...devices.map((d) => ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.usb),
-                        title: Text(d.productName ?? d.deviceName ?? 'USB serial device'),
+                        title: Text(d.productName.isNotEmpty ? d.productName : (d.deviceName ?? 'USB serial device')),
                         subtitle: Text('VID: ${d.vendorId}  ·  PID: ${d.productId}'),
                         trailing: connectedDevice?.deviceId == d.deviceId
                             ? const Icon(Icons.check_circle, color: Colors.green)
