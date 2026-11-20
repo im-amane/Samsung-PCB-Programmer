@@ -168,6 +168,7 @@ void main() {
           commandTimeout: Duration(seconds: 1),
           dataTimeout: Duration(seconds: 1),
         ),
+        allowDestructiveOperations: true,
       );
 
       final progress = <RenesasProgramProgress>[];
@@ -190,6 +191,24 @@ void main() {
       expect(progress.last.fraction, 1);
     });
 
+    test('refuses destructive programming when the library interlock is disabled', () async {
+      final channel = _FakeChannel([]);
+      final session = RenesasProtocolSession(
+        channel: channel,
+        timing: const RenesasSessionTiming(
+          interFrame: Duration.zero,
+          commandTimeout: Duration(seconds: 1),
+          dataTimeout: Duration(seconds: 1),
+        ),
+      );
+      final plan = RenesasProgramPlan.fromSRecord(_full16kS3Image());
+      await expectLater(
+        session.program(plan: plan, confirmDestructiveErase: true),
+        throwsStateError,
+      );
+      expect(channel.writes, isEmpty);
+    });
+
     test('refuses destructive programming without explicit erase confirmation', () async {
       final channel = _FakeChannel([]);
       final session = RenesasProtocolSession(
@@ -199,6 +218,7 @@ void main() {
           commandTimeout: Duration(seconds: 1),
           dataTimeout: Duration(seconds: 1),
         ),
+        allowDestructiveOperations: true,
       );
       final plan = RenesasProgramPlan.fromSRecord(_full16kS3Image());
       await expectLater(
