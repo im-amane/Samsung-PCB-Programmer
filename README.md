@@ -12,11 +12,11 @@ Open the [GitHub Actions builds](https://github.com/im-amane/Samsung-PCB-Program
 - Three recovered DA41 firmware assets are bundled in the app and load automatically when their board profile is selected
 - Import the original Samsung Swap APK locally to extract its three DA41 firmware assets plus four original image assets into app memory
 - Firmware file import, Motorola S-record structure/checksum/termination validation, address-indexed memory-map parsing, overlap/gap checks, and generic data-block preparation
-- Renesas 78K0R command/data frame codec with checksums, response validation, ACK/NACK handling, erase/program/verify/signature frame builders, and 16 KB frame-plan preparation
+- Renesas 78K0R command/data frame codec with checksums, response validation, ACK/NACK handling, erase/program/verify/signature frame builders, 16 KB frame-plan preparation, and documented Baud Rate Set + Reset transition (including programmer-correction divisor calculation)
 - Testable protocol transaction engine for silicon-signature read and erase/program/verify sequencing, connected to the Android USB serial byte stream for the non-destructive signature diagnostic
 - Native serial wire-channel abstraction plus Android USB serial transport with configurable transmit/receive DTR/RTS states, 8N2/8N1 UART configuration, bounded receive buffering, and BREAK control API
 - Canonical S-record fingerprint matching that normalizes CRLF/LF and final-newline differences
-- Automated firmware and Flutter unit tests, run before each CI APK build
+- Automated firmware and Flutter unit tests plus `flutter analyze`, run before each CI APK build
 - Static-analysis findings and hardware test checklist
 
 ## Original APK asset copying
@@ -37,7 +37,7 @@ The `--all` option writes into `assets/original_apk/` and keeps the original tre
 
 ## Current implementation boundary
 
-The app currently performs USB/native serial discovery and open/close, automatically loads bundled firmware by selected profile, imports firmware and original APK assets, validates S-records and profile fingerprints, and prepares a protocol plan. The Renesas transaction engine is fake-channel tested. The Android USB byte stream implements the READY-pulse synchronization and silicon-signature read path in software, but this non-destructive path has not yet been commissioned on a physical Samsung PCB. The dashboard's Erase + Write + Verify action is hard-locked in the app until the exact Samsung PCB revision, adapter voltage/pinout, RESET/FLMD0 sequencing, TOOL0 direction switching, and a successful spare-board bench test are documented and validated. The app does not drive VDD, RESET or FLMD0, and does not reboot or power off the target.
+The app currently performs USB/native serial discovery and open/close, automatically loads bundled firmware by selected profile, imports firmware and original APK assets, validates S-records and profile fingerprints, and prepares a protocol plan. The Renesas transaction engine is fake-channel tested. The Android USB byte stream implements the uPD78F1201-specific READY-pulse synchronization, silicon-signature read, and Renesas baud-transition paths in software, but these non-destructive paths have not yet been commissioned on a physical Samsung PCB. The UI stays at the initial 9,600 bps until a verified target-voltage profile is available; direct host-only baud changes are disabled. The dashboard's Erase + Write + Verify action is hard-locked in the app until the exact Samsung PCB revision, adapter voltage/pinout, RESET/FLMD0 sequencing, TOOL0 direction switching, and a successful spare-board bench test are documented and validated. The app does not drive VDD, RESET or FLMD0, and does not reboot or power off the target.
 
 The physical adapter's pinout, logic voltage, TOOL0 direction-control polarity, reset/FLMD0 sequence, serial timing and target compatibility remain unverified. Erase/write must stay disabled until those facts are confirmed from the exact adapter/PCB documentation and tested on safe bench hardware. Never guess pin wiring or firmware compatibility.
 
