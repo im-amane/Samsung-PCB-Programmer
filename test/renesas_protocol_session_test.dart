@@ -107,6 +107,31 @@ void main() {
       expect(channel.rxCount, 3);
     });
 
+    test('retries Reset command after a non-ACK status and stops on ACK', () async {
+      final channel = _FakeChannel(
+        [_statusFrame([0x15]), _statusFrame([0x06])],
+        rawResponses: [Uint8List.fromList([0x00])],
+      );
+      final session = RenesasProtocolSession(
+        channel: channel,
+        timing: const RenesasSessionTiming(
+          interFrame: Duration.zero,
+          commandTimeout: Duration(seconds: 1),
+          dataTimeout: Duration(seconds: 1),
+        ),
+      );
+
+      await session.synchronize();
+
+      expect(channel.writes, [
+        [0x00],
+        [0x00],
+        Renesas78k0rProtocol.resetFrame(),
+        Renesas78k0rProtocol.resetFrame(),
+      ]);
+      expect(channel.responses, isEmpty);
+    });
+
     test('rejects a missing or invalid READY pulse before sending bytes', () async {
       final channel = _FakeChannel(
         [],
