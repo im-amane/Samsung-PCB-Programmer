@@ -25,6 +25,10 @@ The U19486 UART-mode section specifies an initial **9,600 bps**, no parity, 8 da
 
 Production Android sessions use a 100 μs ordinary inter-frame delay and three-second receive timeouts. U19486 §5.2 gives 78K0R/Ix3 minima of 83.8 μs from Verify status to Verify data and 13.2 μs from a status frame to the next command; approximately 3 seconds is recommended where no maximum is specified. The reset-entry handshake separately uses t01, t02 and t2C as described above. These are family-reference minima; they do not establish the Samsung adapter's electrical switching delay or prove the Samsung application uses the same timing profile.
 
+## Baud-rate transition implemented in software
+
+The independent session now supports the Renesas Baud Rate Set command followed by the mandatory Reset synchronization at the new rate. In microcontroller-correction mode (D01=00), the U19486 parameter table fixes D02H/D02L to 00H/0AH for 115200 bps. Programmer-correction mode (D01=01) requires the programmer to measure the READY pulse and calculate D02 from the MCU oscillator frequency and baud error. D04 selects the flash rewriting voltage mode; full-speed mode is specified for 2.7-5.5 V, while wide-voltage support depends on the exact product. The API therefore requires the caller to supply the measured/calculated D02 values and verified D04 mode. The app UI remains at the initial 9600 bps and does not expose a faster rate until the target voltage mode and adapter profile are confirmed.
+
 ## What this does NOT establish
 
 The research does not establish the Samsung PCB's connector pin numbering, which pins are actually routed, adapter voltage, safe power sequencing, pulse polarity/duration, the Samsung app's post-entry baud-rate choice, exact USB-adapter direction switching, Samsung-specific chunk policy, security settings, or whether the 0459M image is compatible with a 0459C/0459G PCB.
