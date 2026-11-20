@@ -39,7 +39,6 @@ class SRecordImage {
     var sawData = false;
     var sawTermination = false;
     String? dataType;
-    String? terminationType;
     var minAddress = 0x7fffffff;
     var maxAddress = -1;
 
@@ -107,7 +106,6 @@ class SRecordImage {
         if (!sawData || payloadLength != 0 || dataType != expectedDataType) {
           throw fail('S$type termination does not match the data record type.');
         }
-        terminationType = type;
         sawTermination = true;
       }
       total++;
