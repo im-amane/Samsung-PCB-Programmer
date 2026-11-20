@@ -1,5 +1,7 @@
 # Samsung PCB Programmer
 
+> **Project identity:** This repository contains an independently implemented Samsung PCB programmer research app. It is **not** a rebuilt, patched, or activation-modified copy of S.K. Electronics' Samsung Swap APK. The supplied Samsung Swap APK is used only as a local source for documented firmware/assets analysis; its third-party activation mechanism is not altered or bypassed. A same-to-same rebuild requires the original Flutter source project and the rights-holder's authorization for any licensing-system changes.
+
 Independent Android app project for Samsung refrigerator inverter PCB service research.
 
 ## Download APK
