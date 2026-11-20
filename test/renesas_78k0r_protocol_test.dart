@@ -39,6 +39,44 @@ void main() {
       expect(Renesas78k0rProtocol.siliconSignatureFrame(), [0x01, 0x01, 0xc0, 0x3f, 0x03]);
     });
 
+    test('calculates programmer-correction baud divisor from READY timing', () {
+      expect(
+        Renesas78k0rProtocol.calculateBaudRateDivisor(
+          oscillatorHz: 20e6,
+          readyPulseError: 1.0,
+          baudRate: 1000000,
+        ),
+        10,
+      );
+      expect(
+        Renesas78k0rProtocol.calculateBaudRateDivisor(
+          oscillatorHz: 20e6,
+          readyPulseError: 0.98,
+          baudRate: 1000000,
+        ),
+        10,
+      );
+    });
+
+    test('rejects invalid programmer-correction baud inputs', () {
+      expect(
+        () => Renesas78k0rProtocol.calculateBaudRateDivisor(
+          oscillatorHz: 0,
+          readyPulseError: 1,
+          baudRate: 115200,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => Renesas78k0rProtocol.calculateBaudRateDivisor(
+          oscillatorHz: 20e6,
+          readyPulseError: 1,
+          baudRate: 0,
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('builds a block-aligned programming command', () {
       expect(
         Renesas78k0rProtocol.programmingFrame(0x0000, 0x3fff),
