@@ -329,9 +329,9 @@ class _DashboardPageState extends State<DashboardPage> {
       final session = RenesasProtocolSession(
         channel: RenesasUsbWireChannel(transport),
         timing: const RenesasSessionTiming(
-          interFrame: Duration.zero,
-          commandTimeout: Duration(seconds: 2),
-          dataTimeout: Duration(seconds: 2),
+          interFrame: Duration(microseconds: 100),
+          commandTimeout: Duration(seconds: 3),
+          dataTimeout: Duration(seconds: 3),
         ),
       );
       await session.synchronize();
@@ -673,9 +673,9 @@ class _DashboardPageState extends State<DashboardPage> {
       final session = RenesasProtocolSession(
         channel: RenesasUsbWireChannel(transport),
         timing: const RenesasSessionTiming(
-          interFrame: Duration.zero,
-          commandTimeout: Duration(seconds: 10),
-          dataTimeout: Duration(seconds: 5),
+          interFrame: Duration(microseconds: 100),
+          commandTimeout: Duration(seconds: 3),
+          dataTimeout: Duration(seconds: 3),
         ),
         allowDestructiveOperations: hardwareBenchCommissioned,
       );
