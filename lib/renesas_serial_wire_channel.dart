@@ -19,7 +19,7 @@ class RenesasSerialWireChannel implements RenesasWireChannel {
   final RenesasSerialTransport transport;
   final Future<void> Function() setTransmitDirection;
   final Future<void> Function() setReceiveDirection;
-  final int baudRate;
+  int baudRate;
   final int timeoutMs;
 
   @override
@@ -37,6 +37,12 @@ class RenesasSerialWireChannel implements RenesasWireChannel {
   @override
   Future<void> write(Uint8List bytes) async {
     transport.writeAll(bytes, timeoutMs: timeoutMs);
+  }
+
+  @override
+  Future<void> updateBaudRate(int value) async {
+    if (value <= 0) throw ArgumentError.value(value, 'value');
+    baudRate = value;
   }
 
   @override
