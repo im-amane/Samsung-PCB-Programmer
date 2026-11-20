@@ -70,6 +70,7 @@ class RenesasProtocolSession {
   RenesasProtocolSession({
     required this.channel,
     required this.timing,
+    this.allowDestructiveOperations = false,
   }) {
     timing.validate();
   }
@@ -79,19 +80,29 @@ class RenesasProtocolSession {
   final RenesasWireChannel channel;
   final RenesasSessionTiming timing;
 
+  /// A second, library-level interlock. UI state alone must never authorize
+  /// a destructive flash operation. Defaults to false for every caller.
+  final bool allowDestructiveOperations;
+
   Future<RenesasResponseFrame> _exchangeCommand(
     Uint8List command, {
     String operation = 'command',
   }) async {
     await Future<void>.delayed(timing.interFrame);
-    await channel.transmitMode();
-    await channel.write(command);
-    await channel.receiveMode();
-    final response = Renesas78k0rProtocol.decodeResponseFrame(
-      await channel.readFrame(timing.commandTimeout),
-    );
-    Renesas78k0rProtocol.requireAck(response, operation: operation);
-    return response;
+    try {
+      await channel.transmitMode();
+      await channel.write(command);
+      await channel.receiveMode();
+      final response = Renesas78k0rProtocol.decodeResponseFrame(
+        await channel.readFrame(timing.commandTimeout),
+      );
+      Renesas78k0rProtocol.requireAck(response, operation: operation);
+      return response;
+    } catch (_) {
+      // Never leave a shared half-duplex line in transmit mode after failure.
+      try { await channel.receiveMode(); } catch (_) {}
+      rethrow;
+    }
   }
 
   Future<void> _exchangeData(
@@ -99,17 +110,22 @@ class RenesasProtocolSession {
     required String operation,
   }) async {
     await Future<void>.delayed(timing.interFrame);
-    await channel.transmitMode();
-    await channel.write(frame);
-    await channel.receiveMode();
-    final response = Renesas78k0rProtocol.decodeResponseFrame(
-      await channel.readFrame(timing.dataTimeout),
-    );
-    Renesas78k0rProtocol.requireStatuses(
-      response,
-      expectedCount: 2,
-      operation: operation,
-    );
+    try {
+      await channel.transmitMode();
+      await channel.write(frame);
+      await channel.receiveMode();
+      final response = Renesas78k0rProtocol.decodeResponseFrame(
+        await channel.readFrame(timing.dataTimeout),
+      );
+      Renesas78k0rProtocol.requireStatuses(
+        response,
+        expectedCount: 2,
+        operation: operation,
+      );
+    } catch (_) {
+      try { await channel.receiveMode(); } catch (_) {}
+      rethrow;
+    }
   }
 
   /// Synchronizes the TOOL0 UART after the target's READY pulse is present.
@@ -156,6 +172,11 @@ class RenesasProtocolSession {
     required bool confirmDestructiveErase,
     void Function(RenesasProgramProgress progress)? onProgress,
   }) async {
+    if (!allowDestructiveOperations) {
+      throw StateError(
+        'Destructive programming is disabled until hardware commissioning is explicitly enabled.',
+      );
+    }
     if (!confirmDestructiveErase) {
       throw StateError('Chip erase was not explicitly confirmed.');
     }
