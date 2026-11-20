@@ -55,6 +55,8 @@ jobs:
           done
       - name: Run unit tests
         run: flutter test
+      - name: Analyze Flutter source
+        run: flutter analyze --no-pub
       - name: Build debug APK
         run: flutter build apk --debug
       - name: Upload APK
