@@ -272,6 +272,11 @@ class RenesasUsbWireChannel implements RenesasWireChannel {
   Future<void> write(Uint8List bytes) => transport.writeAll(bytes);
 
   @override
+  Future<void> updateBaudRate(int baudRate) async {
+    transport.updateBaudRate(baudRate);
+  }
+
+  @override
   Future<Uint8List> readFrame(Duration timeout) =>
       transport.readResponseBytes(readTimeout: timeout);
 
