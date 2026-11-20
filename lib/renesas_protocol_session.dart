@@ -147,14 +147,14 @@ class RenesasProtocolSession {
           : '0x${ready.first.toRadixString(16).padLeft(2, '0')}';
       throw StateError('Expected Renesas READY pulse 0x00, received $value.');
     }
-    // U19486EJ1V0AN §4.4 specifies two separate 00H low-level outputs:
-    // tCOM before the first, t12 between them, then receive direction and
-    // t2C before the Reset command. Combining the bytes into one write skips
-    // required timing and direction transitions.
-    await Future<void>.delayed(const Duration(microseconds: 14)); // tCOM >= 13.2 us
+    // uPD78F1201 is a 78K0R/Ix3 device. Use the Ix3-specific §5.2
+    // programming-mode timing table: t01 >= 110.6 us before sync byte 1,
+    // t02 >= 4.5 us between sync bytes, and t2C >= 608.1 us before Reset.
+    // Do not substitute the Kx3-L sample's generic tCOM/t12 labels here.
+    await Future<void>.delayed(const Duration(microseconds: 111)); // t01
     await channel.transmitMode();
     await channel.write(Uint8List.fromList([0x00]));
-    await Future<void>.delayed(const Duration(microseconds: 111)); // t12 >= 110.6 us
+    await Future<void>.delayed(const Duration(microseconds: 5)); // t02
     await channel.write(Uint8List.fromList([0x00]));
     await channel.receiveMode();
     await Future<void>.delayed(const Duration(microseconds: 609)); // t2C >= 608.1 us
